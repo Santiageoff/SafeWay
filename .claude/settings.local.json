@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:/Users/PC/Documents/Santiago/Proyectos/SafeWay/Backend\" && node --no-warnings src/app.js)",
+      "Bash(sleep 2 && curl -s \"http://localhost:3001/api/risk/zones/1\" | head -c 500)"
+    ]
+  }
+}
