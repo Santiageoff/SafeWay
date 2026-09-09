@@ -1,1 +1,6 @@
-node_modules\n.env\ndist
+node_modules
+.env
+dist
+
+# Respaldo local de reportes ciudadanos (se usa cuando no hay Supabase configurado)
+Backend/data/reports.json

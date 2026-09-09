@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { MapContainer, TileLayer, Circle, CircleMarker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import ReportLayer from './ReportLayer'
 
 const RISK_COLORS = {
   high: '#EF4444',
@@ -19,26 +20,18 @@ const VEHICLE_ICONS = {
   carro: '🚗',
   moto: '🏍️',
   bici: '🚲',
-  peatón: '🚶'
+  peatón: '🚶',
+  publico: '🚌'
 }
 
-// Convertir nivel de riesgo a porcentaje de inseguridad
+// Respaldo cuando la zona no trae el porcentaje calculado por el backend
+// (por ejemplo, los datos de demostración que usa App.jsx si la API no responde).
 const riskToPercentage = (risk) => {
   switch (risk) {
     case 'high': return 85
     case 'medium': return 55
     case 'low': return 25
     default: return 25
-  }
-}
-
-// Convertir nivel de riesgo a puntaje de seguridad (0-100)
-const riskToScore = (risk) => {
-  switch (risk) {
-    case 'high': return 15
-    case 'medium': return 45
-    case 'low': return 75
-    default: return 75
   }
 }
 
@@ -82,7 +75,7 @@ function ProgressBar({ percentage, color }) {
   )
 }
 
-function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], originZone = null, destinationZone = null, routeData = null }) {
+function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], originZone = null, destinationZone = null, routeData = null, reports = [], showReports = true }) {
   const safeZones = Array.isArray(zones) ? zones : []
   const safeRouteZones = Array.isArray(highlightZones) ? highlightZones : []
 
@@ -203,10 +196,14 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
       {validZones.map((zone) => {
         const risk = getVehicleRisk(zone)
         const color = RISK_COLORS[risk] || RISK_COLORS.low
-        const percentage = riskToPercentage(risk)
-        const score = riskToScore(risk)
+        // El porcentaje viene calculado del backend (base histórica + reportes
+        // ciudadanos con decaimiento). Solo se deriva del nivel como respaldo.
+        const percentage = zone.insecurityPercentage ?? riskToPercentage(risk)
+        const score = zone.safetyScore ?? (100 - percentage)
         const barColor = getBarColor(percentage)
         const zoneStyle = getZoneStyle(zone)
+        const basePercentage = zone.baseInsecurityPercentage
+        const raisedByReports = basePercentage != null && percentage > basePercentage
 
         return (
           <Circle
@@ -245,6 +242,23 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
                     <span style={{ color: barColor, fontWeight: '600' }}>{percentage}%</span>
                   </div>
                   <ProgressBar percentage={percentage} color={barColor} />
+
+                  {/* Separar SIEMPRE el dato oficial del reporte ciudadano: si el
+                      número subió, hay que decir por qué y desde dónde. */}
+                  {raisedByReports && (
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#b45309' }}>
+                      ▲ Subió de {basePercentage}% por {zone.reportsAffectingMode} reporte
+                      {zone.reportsAffectingMode === 1 ? '' : 's'} ciudadano
+                      {zone.reportsAffectingMode === 1 ? '' : 's'} reciente
+                      {zone.reportsAffectingMode === 1 ? '' : 's'}
+                    </p>
+                  )}
+
+                  {zone.dominantWindow && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
+                      🕐 La mayoría de reportes son en la {zone.dominantWindow.label}
+                    </p>
+                  )}
                 </div>
 
                 {/* Puntaje de seguridad */}
@@ -298,6 +312,9 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
           </Circle>
         )
       })}
+
+      {/* Reportes ciudadanos: puntos sobre las burbujas, nunca mezclados con ellas */}
+      <ReportLayer reports={reports} visible={showReports} />
     </MapContainer>
   )
 }

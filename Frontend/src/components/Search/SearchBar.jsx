@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { analyzeRoute } from '../../services/api'
 
 function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
   const [originInput, setOriginInput] = useState('')
@@ -16,16 +17,13 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
     setError(null)
     setResult(null)
     try {
-      const response = await fetch('http://localhost:3001/api/route/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: originInput.trim(),
-          destination: destinationInput.trim(),
-          vehicleType: selectedVehicle || 'carro'
-        })
-      })
-      const data = await response.json()
+      // Antes esto llamaba a http://localhost:3001 quemado, ignorando VITE_API_URL.
+      const response = await analyzeRoute(
+        originInput.trim(),
+        destinationInput.trim(),
+        selectedVehicle || 'carro'
+      )
+      const data = response.data
       if (!data.success) {
         setError(data.error || 'No se encontró la zona. Intenta con: Chapinero, Kennedy, Suba...')
         return
@@ -33,7 +31,7 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
       setResult(data)
       if (onRouteAnalyzed) onRouteAnalyzed(data)
     } catch (err) {
-      setError('No se pudo conectar con el servidor')
+      setError(err.response?.data?.error || 'No se pudo conectar con el servidor')
     } finally {
       setLoading(false)
     }
@@ -169,20 +167,34 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
           border: '1px solid #1E3A5F',
           borderRadius: '12px'
         }}>
-          {/* Nivel de riesgo */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', color: '#94A3B8' }}>Nivel de riesgo general:</span>
-            <span style={{
-              padding: '4px 12px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: '600',
-              color: 'white',
-              backgroundColor: getResultColor(result.riskLevel)
-            }}>
-              {result.riskLevel === 'high' ? 'Alto' : result.riskLevel === 'medium' ? 'Medio' : 'Bajo'}
-            </span>
-          </div>
+          {/* Nivel de riesgo.
+              /api/route/analyze devuelve `overallRisk`, no `riskLevel`: se leía
+              el campo equivocado y el badge siempre decía "Bajo". */}
+          {(() => {
+            const level = result.overallRisk || result.riskLevel
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span style={{ fontSize: '12px', color: '#94A3B8' }}>Nivel de riesgo general:</span>
+                <span style={{
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'white',
+                  backgroundColor: getResultColor(level)
+                }}>
+                  {level === 'high' ? 'Alto' : level === 'medium' ? 'Medio' : 'Bajo'}
+                </span>
+              </div>
+            )
+          })()}
+
+          {/* Franja horaria en la que se está evaluando */}
+          {result.timeWindow && (
+            <div style={{ fontSize: '11px', color: '#22D3EE', marginBottom: '10px' }}>
+              🕐 Evaluado para la {result.timeWindow.label}
+            </div>
+          )}
 
           {/* Route Info Panel */}
           {(result.routeDistance || result.routeDuration) && (

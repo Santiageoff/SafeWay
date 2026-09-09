@@ -1,4 +1,4 @@
-function RiskSummary({ zones, loading, error, vehicleType }) {
+function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
   const getRiskLabel = (level) => {
     switch (level) {
       case 'high': return 'Alto'
@@ -17,6 +17,7 @@ function RiskSummary({ zones, loading, error, vehicleType }) {
     }
   }
 
+  // Respaldo cuando la zona no trae el porcentaje del backend (datos de demostración)
   const getPercentageFromRisk = (level) => {
     switch (level) {
       case 'high': return 85
@@ -26,11 +27,14 @@ function RiskSummary({ zones, loading, error, vehicleType }) {
     }
   }
 
+  // Ordena por nivel y, dentro del mismo nivel, por porcentaje: así el cambio de
+  // medio de transporte se nota de verdad en la lista, no solo en los colores.
   const sortedZones = [...(zones || [])].sort((a, b) => {
     const levelOrder = { high: 0, medium: 1, low: 2 }
     const aLevel = a.vehicleRisks?.[vehicleType] || a.riskLevel || 'low'
     const bLevel = b.vehicleRisks?.[vehicleType] || b.riskLevel || 'low'
-    return levelOrder[aLevel] - levelOrder[bLevel]
+    if (levelOrder[aLevel] !== levelOrder[bLevel]) return levelOrder[aLevel] - levelOrder[bLevel]
+    return (b.insecurityPercentage ?? 0) - (a.insecurityPercentage ?? 0)
   })
 
   const getVehicleRisk = (zone) => zone.vehicleRisks?.[vehicleType] || zone.riskLevel || 'low'
@@ -72,7 +76,8 @@ function RiskSummary({ zones, loading, error, vehicleType }) {
   const renderZoneCard = (zone) => {
     const risk = getVehicleRisk(zone)
     const color = getRiskColor(risk)
-    const percentage = getPercentageFromRisk(risk)
+    const percentage = zone.insecurityPercentage ?? getPercentageFromRisk(risk)
+    const reportCount = zone.reportsAffectingMode || 0
 
     return (
       <div
@@ -88,7 +93,14 @@ function RiskSummary({ zones, loading, error, vehicleType }) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>{zone.name}</span>
+          <span style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>
+            {zone.name}
+            {reportCount > 0 && (
+              <span style={{ marginLeft: '6px', fontSize: '10px', color: '#FCD34D', fontWeight: '500' }}>
+                🚨 {reportCount}
+              </span>
+            )}
+          </span>
           <span style={{
             padding: '2px 8px',
             borderRadius: '12px',
@@ -129,6 +141,13 @@ function RiskSummary({ zones, loading, error, vehicleType }) {
         <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px', margin: 0 }}>
           {zones?.length || 0} localidades en Bogotá
         </p>
+        {/* Contexto horario: el mapa ya está pintado para esta franja, no hay
+            que tocar ningún control. Solo se dice qué se está viendo. */}
+        {timeWindow && (
+          <p style={{ fontSize: '11px', color: '#22D3EE', margin: '6px 0 0' }}>
+            🕐 Riesgo de la {timeWindow.label}
+          </p>
+        )}
       </div>
 
       {highRiskZones.length > 0 && (
