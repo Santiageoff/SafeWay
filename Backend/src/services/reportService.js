@@ -29,6 +29,10 @@ const TYPE_TO_MODES = {
     vivienda: []
 }
 
+// Tope de texto libre. Sin esto cabian 100kb de texto por reporte.
+const MAX_DESCRIPTION_LENGTH = 500
+const MAX_STATION_LENGTH = 120
+
 const MAX_REPORTS_PER_DAY = 5
 const UNDO_WINDOW_SECONDS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -51,6 +55,14 @@ class ReportError extends Error {
         this.statusCode = statusCode
         this.code = code
     }
+}
+
+// Recorta y normaliza texto libre del usuario antes de guardarlo.
+function sanitizeText(value, maxLength) {
+    if (value === null || value === undefined) return null
+    const trimmed = String(value).trim()
+    if (!trimmed) return null
+    return trimmed.slice(0, maxLength)
 }
 
 function modesForType(type) {
@@ -118,8 +130,8 @@ function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, descrip
         locality: locality ? locality.name : null,
         locality_id: locality ? locality.id : null,
         type: type || null,
-        station: station || null,
-        description: description || null,
+        station: sanitizeText(station, MAX_STATION_LENGTH),
+        description: sanitizeText(description, MAX_DESCRIPTION_LENGTH),
         precision: isHome ? 'approx' : 'exact',
         device_hash: deviceHash,
         status: 'active'
@@ -178,8 +190,8 @@ async function completeReport(id, deviceHash, patch) {
             updates.precision = 'approx'
         }
     }
-    if (patch.station !== undefined) updates.station = patch.station || null
-    if (patch.description !== undefined) updates.description = patch.description || null
+    if (patch.station !== undefined) updates.station = sanitizeText(patch.station, MAX_STATION_LENGTH)
+    if (patch.description !== undefined) updates.description = sanitizeText(patch.description, MAX_DESCRIPTION_LENGTH)
 
     if (patch.occurredAt !== undefined) {
         const occurred = new Date(patch.occurredAt)
@@ -302,6 +314,7 @@ module.exports = {
     MODES,
     TYPE_TO_MODES,
     MAX_REPORTS_PER_DAY,
+    MAX_DESCRIPTION_LENGTH,
     UNDO_WINDOW_SECONDS,
     UNTYPED_WEIGHT,
     ReportError,
