@@ -4,7 +4,8 @@ Fuente: documento del proyecto (Acta de Constitución, Enunciado del Alcance y E
 Cada requisito dice **de dónde sale**, **qué paquete de la EDT lo entrega** y **cómo se
 comprueba**. Si un PR dice cumplir un requisito, la columna *Cómo se verifica* es lo que se revisa.
 
-Estado al 2026-09-23: ✅ cumple con evidencia · 🟡 parcial · ❌ pendiente · 🔀 depende de CR-001.
+Estado al 2026-09-23: ✅ cumple con evidencia · 🟡 parcial · ❌ pendiente · 🔀 entra por CR-001
+(aprobado por el director el 2026-09-23, pendiente del aval del docente).
 
 ## Funcionales
 
@@ -42,5 +43,6 @@ Estado al 2026-09-23: ✅ cumple con evidencia · 🟡 parcial · ❌ pendiente 
 
 Integración en vivo con fuentes oficiales · desagregación por barrio o tramo de vía · alertas que
 reemplacen la Línea 123 · aplicaciones móviles nativas · comercialización · cobertura fuera de
-Bogotá. Las cuentas de usuario y los reportes ciudadanos estaban en esta lista y se están
-revisando como cambio de alcance ([ADR-005](arquitectura/adr/ADR-005-cuentas-opcionales-y-reportes.md)).
+Bogotá. Las cuentas de usuario y los reportes ciudadanos estaban en esta lista y entran al
+alcance por el cambio CR-001, como opcionales y con consentimiento
+([ADR-005](arquitectura/adr/ADR-005-cuentas-opcionales-y-reportes.md)); pendiente del aval del docente.

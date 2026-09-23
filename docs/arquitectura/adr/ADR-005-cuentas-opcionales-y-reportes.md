@@ -1,7 +1,8 @@
 # ADR-005 — Cuentas opcionales, reportes ciudadanos y perfil proactivo con consentimiento
 
-- **Estado:** **Propuesta** — en revisión como solicitud de cambio **CR-001** (control integrado
-  de cambios, sección V.E del documento). Requiere aval del docente.
+- **Estado:** **Aceptada por el director** (2026-09-23) como solicitud de cambio **CR-001**
+  (control integrado de cambios, sección V.E del documento). **Pendiente del aval del docente**,
+  porque cambia una exclusión del alcance aprobado.
 - **Fecha:** 2026-09-23 · **Responsable:** Sergio Aza (decisión) · Julián Hernández (implementación existente)
 
 ## Contexto
@@ -19,7 +20,7 @@ con RLS y el esquema del perfil proactivo asociado a `user_id`.
 3. Cumplir la Ley 1581: dato personal solo con consentimiento previo, expreso e informado.
 4. No perder trabajo ya hecho y probado.
 
-## Decisión propuesta
+## Decisión
 - **Cuentas opcionales.** Ninguna función del documento original exige sesión: el mapa y el
   análisis de ruta siguen abiertos.
 - **Reportes ciudadanos** como fuente complementaria, mostrados como información **no

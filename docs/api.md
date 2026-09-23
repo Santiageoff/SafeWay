@@ -124,7 +124,7 @@ Responde `"en desarrollo"`. Se elimina en el paquete 3.2.
 
 ---
 
-## Reportes ciudadanos (🔀 en revisión: CR-001)
+## Reportes ciudadanos (🔀 entran por CR-001, ver ADR-005)
 
 ### `GET /api/reports`
 Capa pública de puntos del mapa, agrupados por hecho. **Sin datos personales** (lee una vista
