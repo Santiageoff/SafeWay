@@ -23,7 +23,7 @@ Tres capas desacopladas ([ADR-001](docs/arquitectura/adr/ADR-001-tres-capas.md))
 
 Diagramas: [contexto](docs/arquitectura/contexto.md) · [contenedores](docs/arquitectura/contenedores.md) ·
 Decisiones: [docs/arquitectura/adr/](docs/arquitectura/adr/) · Requisitos: [docs/requisitos.md](docs/requisitos.md) ·
-API: [docs/api.md](docs/api.md)
+API: [docs/api.md](docs/api.md) · Diseño y logo: [docs/diseno/](docs/diseno/README.md)
 
 ## Correrlo en local
 
@@ -80,7 +80,7 @@ Backend/            API Node.js + Express 5
 Frontend/           React 19 + Vite + react-leaflet
 supabase/           configuración y migraciones versionadas de la base de datos
 data-processing/    scripts de limpieza y carga de fuentes de datos
-docs/               arquitectura, ADR, requisitos y contrato de la API
+docs/               arquitectura, ADR, requisitos, contrato de la API, diseño y logo
 tools/              verificaciones de arquitectura
 ```
 
