@@ -128,17 +128,41 @@ async function probar() {
         return
     }
 
+    const consultar = (llave, tabla) => fetch(
+        back.SUPABASE_URL + '/rest/v1/' + tabla + '?select=id&limit=1',
+        { headers: { apikey: llave, Authorization: 'Bearer ' + llave }, signal: AbortSignal.timeout(15000) }
+    )
+
+    // Se prueba contra `localities`, que es de lectura publica. Antes se
+    // probaba contra `reports` y, al activar RLS, empezo a dar 401: parecia
+    // una llave rota cuando en realidad la proteccion estaba funcionando.
     for (const [nombre, llave] of [['publicable', back.SUPABASE_KEY], ['secreta', back.SUPABASE_SECRET_KEY]]) {
         if (!llave) continue
         try {
-            const res = await fetch(back.SUPABASE_URL + '/rest/v1/reports?select=id&limit=1', {
-                headers: { apikey: llave, Authorization: 'Bearer ' + llave },
-                signal: AbortSignal.timeout(15000)
-            })
+            const res = await consultar(llave, 'localities')
             if (res.ok) ok('La llave ' + nombre + ' conecta con Supabase (HTTP ' + res.status + ')')
             else falta('La llave ' + nombre + ' responde HTTP ' + res.status, 'revisa que la copiaste completa')
         } catch (err) {
             falta('La llave ' + nombre + ' no conecta: ' + err.message)
+        }
+    }
+
+    // Y de paso, la comprobacion que de verdad importa: que la llave publicable
+    // NO pueda leer la tabla de reportes. Si algun dia esto sale en verde con
+    // un 200, RLS se apago y hay datos personales al aire.
+    if (back.SUPABASE_KEY) {
+        try {
+            const res = await consultar(back.SUPABASE_KEY, 'reports')
+            if (res.status === 401 || res.status === 403) {
+                ok('RLS protege la tabla reports (la llave publicable recibe ' + res.status + ')')
+            } else if (res.ok) {
+                falta('PELIGRO: la llave publicable SI puede leer reports',
+                    'RLS esta desactivada. Revisa las migraciones y corre: npm run audit:rls')
+            } else {
+                aviso('reports respondio HTTP ' + res.status + ' (esperado 401)')
+            }
+        } catch (err) {
+            aviso('no se pudo comprobar RLS sobre reports: ' + err.message)
         }
     }
 }
@@ -148,7 +172,7 @@ probar().then(() => {
     console.log('==================================')
     if (faltantes === 0) {
         console.log('Todo listo' + (avisos ? ' (' + avisos + ' aviso(s) para revisar)' : '') + '.')
-        console.log('Ya puedes decirle a Claude que continúe con las migraciones.')
+        console.log('El entorno esta completo y RLS esta protegiendo la base.')
     } else {
         console.log('Faltan ' + faltantes + ' cosa(s). Mira las líneas [FALTA] de arriba.')
         console.log('Detalle completo en SETUP-AUTH-RLS.md')
