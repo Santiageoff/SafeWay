@@ -45,7 +45,8 @@ npm run dev
 
 **Sin `.env` el backend arranca igual**: usa el dataset de respaldo de 20 localidades y lo indica
 en cada respuesta (`meta.localitySource: "respaldo-local"`). Para usar la base de datos real y el
-inicio de sesión, pide los valores al dueño del proyecto de Supabase:
+inicio de sesión, pide los valores al dueño del proyecto de Supabase (guía completa en
+[docs/setup-supabase.md](docs/setup-supabase.md)):
 
 | Archivo | Variable | Qué es | ¿Secreta? |
 |---|---|---|---|
