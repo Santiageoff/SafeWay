@@ -1,20 +1,41 @@
 import { useState } from 'react'
 import { createReport } from '../../services/api'
 import { getCurrentPosition } from '../../utils/device'
+import { useAuth } from '../../context/useAuth'
 
 // El botón rojo.
 //
-// Un solo toque envía el reporte con GPS y hora. NO pregunta nada primero:
-// una persona a la que acaban de robar está asustada y furiosa, no va a
-// llenar un formulario. El tipo y los detalles se completan después, con calma,
-// y el toque accidental se arregla con los 30 segundos para deshacer.
+// Un solo toque envía el reporte con GPS y hora. NO pregunta nada más: una
+// persona a la que acaban de robar está asustada y furiosa, no va a llenar un
+// formulario. El tipo y los detalles se completan después, con calma, y el
+// toque accidental se arregla con los 30 segundos para deshacer.
+//
+// Lo que sí exige ahora es sesión iniciada. Es una decisión de producto que
+// tiene coste: quien acaba de perder el celular en la calle difícilmente va a
+// crear una cuenta ahí mismo. A cambio, cierra de raíz la suplantación y el
+// abuso anónimo. Si no hay sesión, el botón no reporta: abre el login
+// explicando por qué, y recuerda el 123 antes que nada.
 
-function ReportButton({ onReported, onNeedsManualLocation, disabled }) {
+function ReportButton({ onReported, onNeedsManualLocation, onNeedsAuth, disabled }) {
+  const { haySesion, disponible } = useAuth()
   const [state, setState] = useState('idle')  // idle | locating | sending | error
   const [error, setError] = useState(null)
 
   const handleClick = async () => {
     if (state === 'locating' || state === 'sending') return
+
+    if (!disponible) {
+      setError('Falta configurar Supabase. No se puede reportar todavía.')
+      return
+    }
+
+    // Sin sesión no se pierde el gesto: se abre el login explicando por qué,
+    // y al volver la persona ya puede pulsar otra vez.
+    if (!haySesion) {
+      setError(null)
+      onNeedsAuth?.()
+      return
+    }
 
     setError(null)
     setState('locating')
@@ -45,7 +66,7 @@ function ReportButton({ onReported, onNeedsManualLocation, disabled }) {
   }
 
   const label = {
-    idle: 'Reportar robo',
+    idle: haySesion ? 'Reportar robo' : 'Reportar robo · requiere cuenta',
     locating: 'Ubicando…',
     sending: 'Enviando…',
     error: 'No se pudo enviar'

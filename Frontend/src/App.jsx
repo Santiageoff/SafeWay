@@ -6,6 +6,10 @@ import RiskSummary from './components/RiskPanel/RiskSummary'
 import ReportButton from './components/Alert/ReportButton'
 import ReportToast from './components/Alert/ReportToast'
 import ReportDetails from './components/Alert/ReportDetails'
+import AuthModal from './components/Auth/AuthModal'
+import ResetPassword from './components/Auth/ResetPassword'
+import UserMenu from './components/Auth/UserMenu'
+import { useAuth } from './context/useAuth'
 import { getRiskZones, getReports, getMyReports } from './services/api'
 import logoSafeWay from './assets/Logo_SafeWay.png'
 import './index.css'
@@ -31,6 +35,7 @@ const DEMO_ZONES = [
 ]
 
 function App() {
+  const { haySesion, recuperando } = useAuth()
   const [riskZones, setRiskZones] = useState([])
   const [meta, setMeta] = useState({})
   const [reports, setReports] = useState([])
@@ -47,6 +52,7 @@ function App() {
   const [toast, setToast] = useState(null)          // { report, remainingToday, undoWindowSeconds }
   const [detailsFor, setDetailsFor] = useState(null) // reporte a completar, o 'new'
   const [pendingCount, setPendingCount] = useState(0)
+  const [authMotivo, setAuthMotivo] = useState(null)  // por qué se pide la sesión
 
   // El mapa se recarga cuando cambia el medio: el mismo dato se repinta según
   // qué robos te afectan a ti. En carro ves dónde roban carros; en bus, dónde
@@ -79,14 +85,16 @@ function App() {
   }, [selectedVehicle])
 
   // Reportes propios sin completar: el recordatorio de "cuéntanos con calma".
+  // "Mis reportes" es un endpoint privado: sin sesión no se pide siquiera.
   const loadPending = useCallback(async () => {
+    if (!haySesion) { setPendingCount(0); return }
     try {
       const { incomplete } = await getMyReports()
       setPendingCount(incomplete || 0)
     } catch {
       setPendingCount(0)
     }
-  }, [])
+  }, [haySesion])
 
   useEffect(() => {
     loadRiskZones(selectedVehicle)
@@ -94,6 +102,14 @@ function App() {
   }, [selectedVehicle, loadRiskZones, loadReports])
 
   useEffect(() => { loadPending() }, [loadPending])
+
+  // Si el backend responde 401 en mitad de algo (sesión caducada), se abre el
+  // login en vez de dejar la pantalla en un estado raro.
+  useEffect(() => {
+    const alExpirar = () => setAuthMotivo('Tu sesión expiró. Vuelve a entrar para continuar.')
+    window.addEventListener('safeway:sesion-requerida', alExpirar)
+    return () => window.removeEventListener('safeway:sesion-requerida', alExpirar)
+  }, [])
 
   const refreshAll = useCallback(() => {
     loadRiskZones(selectedVehicle)
@@ -143,6 +159,9 @@ function App() {
               <p style={{ fontSize: '12px', color: '#22D3EE', margin: 0 }}>Bogotá Risk Map</p>
             </div>
           </div>
+          <div style={{ marginTop: '14px' }}>
+            <UserMenu />
+          </div>
         </div>
 
         {/* Search con análisis de ruta */}
@@ -188,7 +207,7 @@ function App() {
             )}
           </div>
 
-          {pendingCount > 0 && (
+          {haySesion && pendingCount > 0 && (
             <button
               onClick={() => setDetailsFor('new')}
               style={{
@@ -286,6 +305,9 @@ function App() {
           <ReportButton
             onReported={handleReported}
             onNeedsManualLocation={() => setDetailsFor('new')}
+            onNeedsAuth={() => setAuthMotivo(
+              'Para reportar un robo necesitas una cuenta. Si estás en peligro ahora mismo, llama al 123 antes que nada.'
+            )}
           />
         )}
 
@@ -308,6 +330,14 @@ function App() {
             onClose={() => { setDetailsFor(null); refreshAll() }}
           />
         )}
+
+        {authMotivo !== null && (
+          <AuthModal motivo={authMotivo} onClose={() => setAuthMotivo(null)} />
+        )}
+
+        {/* Llegó desde el enlace de "olvidé mi contraseña": se le pide la nueva
+            y no se puede saltar, porque si no se queda dentro con la vieja. */}
+        {recuperando && <ResetPassword />}
       </main>
     </div>
   )

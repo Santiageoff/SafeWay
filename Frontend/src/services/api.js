@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getDeviceId } from '../utils/device'
+import { supabase, supabaseConfigurado } from '../lib/supabaseClient'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -8,11 +8,36 @@ const api = axios.create({
   timeout: 10000,
 })
 
-// El uuid anónimo del dispositivo viaja en todas las peticiones de reportes.
-api.interceptors.request.use((config) => {
-  config.headers['X-Device-Id'] = getDeviceId()
+// Cada petición lleva el JWT de la sesión, si la hay.
+//
+// Antes viajaba un uuid de dispositivo sacado de localStorage, que el backend
+// se creía sin comprobar nada: bastaba conocer el de otra persona para leer y
+// borrar sus reportes. Ahora va un token firmado que el backend valida contra
+// Supabase, y que ademas hace que RLS sepa quién eres.
+//
+// Es un interceptor asíncrono a propósito: `getSession` renueva el token solo
+// si está a punto de caducar, así que nunca se manda uno vencido.
+api.interceptors.request.use(async (config) => {
+  if (!supabaseConfigurado) return config
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
+
+// Una sesión caducada no debe dejar la app en un estado raro: se avisa una vez
+// y quien escuche decide qué hacer (normalmente, abrir el login).
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401) {
+      window.dispatchEvent(new CustomEvent('safeway:sesion-requerida', {
+        detail: { code: error.response?.data?.code }
+      }))
+    }
+    return Promise.reject(error)
+  }
+)
 
 // ---------- Zonas de riesgo ----------
 
@@ -35,8 +60,8 @@ export const getZoneDetail = (localidad, vehicleType) =>
 
 // ---------- Reportes ciudadanos (botón de alerta) ----------
 
-// El toque del botón rojo. Solo lat/lng son obligatorios: el tipo y los
-// detalles se completan después, con calma.
+// El toque del botón rojo. Requiere sesión. Solo lat/lng son obligatorios:
+// el tipo y los detalles se completan después, con calma.
 export const createReport = async ({ lat, lng, type = null, occurredAt = null }) => {
   const response = await api.post('/api/reports', { lat, lng, type, occurredAt })
   return response.data
