@@ -1,8 +1,13 @@
 // Reglas de negocio del botón de alerta.
 //
-// Todas las decisiones aquí salieron de la entrevista de definición del producto:
-// el tipo de robo NO pondera, FILTRA; anónimo con límite de 5/día por dispositivo;
-// deshacer 30s; agrupar reportes del mismo hecho; vivienda con ubicación difusa.
+// Decisiones de producto que se conservan: el tipo de robo NO pondera, FILTRA;
+// límite de 5 al día; deshacer 30s; agrupar reportes del mismo hecho; vivienda
+// con ubicación difusa.
+//
+// Lo que CAMBIÓ con el login: reportar exige cuenta. El dueño de un reporte es
+// su user_id, verificado contra el JWT, y ya no el device_hash que mandaba el
+// propio cliente sin que nadie lo comprobara. El límite diario también pasa a
+// contarse por usuario, que es lo que no se puede falsificar.
 
 const store = require('./reportStore')
 const { isInsideBogota, localityForPoint, distanceKm } = require('../utils/geo')
@@ -80,15 +85,15 @@ function blurCoordinate(value) {
 
 // Valida y normaliza lo que llega del navegador. Nunca confiar en el cliente:
 // el `locality` se DERIVA del GPS, no se acepta del request.
-function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, description, deviceHash }) {
+function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, description, userId }) {
     if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
         throw new ReportError('Se requiere una ubicación válida (lat, lng)')
     }
     if (!isInsideBogota(lat, lng)) {
         throw new ReportError('La ubicación está fuera de Bogotá D.C.', 400, 'outside_bogota')
     }
-    if (!deviceHash || typeof deviceHash !== 'string' || deviceHash.length < 8) {
-        throw new ReportError('Falta el identificador de dispositivo')
+    if (!userId || typeof userId !== 'string') {
+        throw new ReportError('Necesitas iniciar sesión para reportar', 401, 'no_autenticado')
     }
     if (type && !REPORT_TYPES.includes(type)) {
         throw new ReportError(`Tipo de robo inválido. Debe ser uno de: ${REPORT_TYPES.join(', ')}`)
@@ -133,17 +138,22 @@ function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, descrip
         station: sanitizeText(station, MAX_STATION_LENGTH),
         description: sanitizeText(description, MAX_DESCRIPTION_LENGTH),
         precision: isHome ? 'approx' : 'exact',
-        device_hash: deviceHash,
+        // El dueño. `with check (auth.uid() = user_id)` en la política de RLS
+        // impide insertarlo a nombre de otra persona aunque se manipule aquí.
+        user_id: userId,
         status: 'active'
     }
 }
 
-// Límite de 5 reportes por día por dispositivo.
-// Santi lo justificó así: a nadie lo roban más de cinco veces en un día;
-// si pasa, es abuso, no una víctima.
-async function assertWithinRateLimit(deviceHash) {
+// Límite de 5 reportes por día. La justificación sigue siendo la misma: a
+// nadie lo roban más de cinco veces en un día; si pasa, es abuso.
+//
+// Lo que cambió es a QUIÉN se le cuenta. Antes era por device_hash, que el
+// cliente elegía: bastaba borrar el localStorage para volver a empezar. Ahora
+// se cuenta por usuario, y RLS hace que el conteo solo vea las filas propias.
+async function assertWithinRateLimit(client) {
     const since = new Date(Date.now() - DAY_MS).toISOString()
-    const count = await store.countByDevice(deviceHash, since)
+    const count = await store.countByUser(client, since)
     if (count >= MAX_REPORTS_PER_DAY) {
         throw new ReportError(
             `Alcanzaste el máximo de ${MAX_REPORTS_PER_DAY} reportes en 24 horas. ` +
@@ -155,20 +165,24 @@ async function assertWithinRateLimit(deviceHash) {
     return MAX_REPORTS_PER_DAY - count - 1  // reportes restantes tras este
 }
 
-async function createReport(input) {
+async function createReport(client, input) {
     const report = buildReport(input)
-    const remaining = await assertWithinRateLimit(input.deviceHash)
-    const saved = await store.insert(report)
+    const remaining = await assertWithinRateLimit(client)
+    const saved = await store.insert(client, report)
     return { report: saved, remainingToday: remaining }
 }
 
-// Completar un reporte en frío. Solo el dispositivo que lo creó puede editarlo:
-// sin login, el device_hash guardado en localStorage es la única credencial.
-async function completeReport(id, deviceHash, patch) {
-    const existing = await store.findById(id)
+// Completar un reporte en frío. Solo su dueño puede editarlo.
+//
+// La comprobación de propiedad ocurre DOS veces, a propósito: RLS ya impide
+// que `findById` devuelva un reporte ajeno (llegaría null), y aquí se vuelve a
+// verificar el user_id. Si algún día alguien afloja una política, esta segunda
+// capa sigue en pie.
+async function completeReport(client, userId, id, patch) {
+    const existing = await store.findById(client, id)
     if (!existing) throw new ReportError('Reporte no encontrado', 404, 'not_found')
-    if (existing.device_hash !== deviceHash) {
-        throw new ReportError('Este reporte fue creado desde otro dispositivo', 403, 'forbidden')
+    if (existing.user_id !== userId) {
+        throw new ReportError('Este reporte no es tuyo', 403, 'forbidden')
     }
     if (existing.status !== 'active') {
         throw new ReportError('Este reporte fue cancelado', 409, 'cancelled')
@@ -231,16 +245,16 @@ async function completeReport(id, deviceHash, patch) {
         updates.locality_id = locality ? locality.id : null
     }
 
-    return store.update(id, updates)
+    return store.update(client, id, updates)
 }
 
 // Deshacer: solo dentro de los 30 segundos siguientes. Arregla el toque
 // accidental sin abrir la puerta a borrar evidencia días después.
-async function cancelReport(id, deviceHash) {
-    const existing = await store.findById(id)
+async function cancelReport(client, userId, id) {
+    const existing = await store.findById(client, id)
     if (!existing) throw new ReportError('Reporte no encontrado', 404, 'not_found')
-    if (existing.device_hash !== deviceHash) {
-        throw new ReportError('Este reporte fue creado desde otro dispositivo', 403, 'forbidden')
+    if (existing.user_id !== userId) {
+        throw new ReportError('Este reporte no es tuyo', 403, 'forbidden')
     }
 
     const elapsedSeconds = (Date.now() - new Date(existing.created_at).getTime()) / 1000
@@ -252,7 +266,16 @@ async function cancelReport(id, deviceHash) {
         )
     }
 
-    return store.update(id, { status: 'cancelled' })
+    return store.update(client, id, { status: 'cancelled' })
+}
+
+// De dónde vino un reporte, sin llegar a saber de quién.
+// Se prueban las tres formas por orden: el token de la vista pública, el
+// user_id cuando se agrupan los reportes propios, y el id como último recurso
+// (que hace que el reporte cuente como su propia fuente, nunca como confirmación
+// de otro).
+function origenDe(report) {
+    return report.source_token || report.user_id || report.device_hash || report.id
 }
 
 // Agrupa reportes que describen EL MISMO hecho: mismo tipo, a menos de 150 m
@@ -278,9 +301,11 @@ function groupReports(reports) {
         if (match) {
             match.confirmations += 1
             match.reports.push(report)
-            // Varios dispositivos distintos confirmando es señal fuerte;
-            // el mismo dispositivo repitiendo, no.
-            match.devices.add(report.device_hash)
+            // Varias personas distintas confirmando es señal fuerte; la misma
+            // repitiendo, no. `source_token` viene de la vista pública y solo
+            // distingue orígenes dentro del mismo día y localidad: sirve para
+            // contar, no para saber de quién se trata.
+            match.devices.add(origenDe(report))
         } else {
             clusters.push({
                 id: report.id,
@@ -295,7 +320,7 @@ function groupReports(reports) {
                 occurred_end: report.occurred_end,
                 anchorTime: time,
                 confirmations: 1,
-                devices: new Set([report.device_hash]),
+                devices: new Set([origenDe(report)]),
                 reports: [report]
             })
         }

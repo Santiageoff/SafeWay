@@ -1,36 +1,93 @@
-// Cliente de Supabase.
+// Clientes de Supabase.
 //
-// El acta prometía Supabase desde la semana 6 pero el archivo estaba vacío y la app
-// nunca se conectó a una base de datos. Aquí se conecta de verdad, y si no hay
-// credenciales configuradas la app NO se cae: reportStore.js usa un respaldo local.
-// Eso cumple el objetivo #4 del acta (continuidad ante fallas de la fuente principal).
+// Hay TRES, y usar el equivocado es un fallo de seguridad. La diferencia entre
+// ellos es quién eres para la base de datos:
+//
+//   anon   -> un visitante sin sesión. RLS aplica. Solo ve lo público.
+//   user   -> una persona concreta, identificada por su JWT. RLS aplica y
+//             `auth.uid()` devuelve su id, así que solo ve lo suyo.
+//   admin  -> service_role. SE SALTA RLS POR COMPLETO.
+//
+// REGLA: para atender la petición de un usuario se usa SIEMPRE el cliente
+// `user`. Nunca el admin. Así, si el código del backend tiene un bug y pide
+// datos de otra persona, la base de datos lo rechaza igual. El admin queda
+// reservado para datos oficiales y tareas internas, donde no hay un usuario
+// de por medio.
 
 const { createClient } = require('@supabase/supabase-js')
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
 
-let client = null
+const SIN_SESION = { auth: { persistSession: false, autoRefreshToken: false } }
+
+let anonClient = null
+let adminClient = null
 
 function isConfigured() {
     return Boolean(SUPABASE_URL && SUPABASE_KEY)
 }
 
-function getClient() {
-    if (!isConfigured()) return null
-    if (!client) {
-        client = createClient(SUPABASE_URL, SUPABASE_KEY)
-    }
-    return client
+function hasAdminKey() {
+    return Boolean(SUPABASE_URL && SUPABASE_SECRET_KEY)
 }
 
-// Comprueba que la conexión responda de verdad, no solo que haya variables de entorno.
+// Visitante sin sesión. Para la vista pública del mapa y las localidades.
+function getAnonClient() {
+    if (!isConfigured()) return null
+    if (!anonClient) anonClient = createClient(SUPABASE_URL, SUPABASE_KEY, SIN_SESION)
+    return anonClient
+}
+
+// service_role. Ignora RLS. Solo para datos oficiales, scripts y el detector
+// de rutas habituales. Si lo usas para responderle a un usuario, te estás
+// saltando tus propias políticas.
+function getAdminClient() {
+    if (!hasAdminKey()) return null
+    if (!adminClient) adminClient = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, SIN_SESION)
+    return adminClient
+}
+
+// Actúa EN NOMBRE del usuario: lleva su JWT, así que para Postgres es esa
+// persona y `auth.uid()` dentro de las políticas devuelve su id.
+// No se cachea: cada petición trae su propio token.
+function getUserClient(accessToken) {
+    if (!isConfigured() || !accessToken) return null
+    return createClient(SUPABASE_URL, SUPABASE_KEY, {
+        ...SIN_SESION,
+        global: { headers: { Authorization: `Bearer ${accessToken}` } }
+    })
+}
+
+// Valida un JWT contra Supabase y devuelve el usuario, o null.
+//
+// Va a la red en cada petición autenticada. Se podría cachear unos segundos,
+// pero entonces un token revocado seguiría valiendo durante ese rato. Para el
+// tamaño de este proyecto no compensa el riesgo.
+async function verifyAccessToken(accessToken) {
+    if (!accessToken) return null
+    const client = getAnonClient()
+    if (!client) return null
+    try {
+        const { data, error } = await client.auth.getUser(accessToken)
+        if (error || !data?.user) return null
+        return data.user
+    } catch {
+        return null
+    }
+}
+
+// Comprueba que la conexión responda de verdad, no solo que haya variables.
+// Consulta `localities`, que es de lectura pública: si consultara `reports`
+// daría "permission denied" y parecería caída cuando en realidad RLS está
+// haciendo justo su trabajo.
 async function checkConnection() {
     if (!isConfigured()) {
         return { ok: false, reason: 'Supabase no configurado (falta SUPABASE_URL o SUPABASE_KEY)' }
     }
     try {
-        const { error } = await getClient().from('reports').select('id').limit(1)
+        const { error } = await getAnonClient().from('localities').select('id').limit(1)
         if (error) return { ok: false, reason: error.message }
         return { ok: true }
     } catch (err) {
@@ -38,4 +95,14 @@ async function checkConnection() {
     }
 }
 
-module.exports = { getClient, isConfigured, checkConnection }
+module.exports = {
+    getAnonClient,
+    getAdminClient,
+    getUserClient,
+    verifyAccessToken,
+    isConfigured,
+    hasAdminKey,
+    checkConnection,
+    // Alias heredado: antes `getClient` era el unico cliente que habia.
+    getClient: getAnonClient
+}

@@ -1,192 +1,108 @@
-// Persistencia de los reportes ciudadanos.
+// Acceso a la tabla `reports`.
 //
-// Dos backends detrás de la misma interfaz:
-//   - Supabase, cuando hay credenciales en .env (producción / entrega).
-//   - Un archivo JSON local, cuando no las hay (desarrollo y demo sin cuenta).
+// CAMBIO IMPORTANTE frente a la version anterior: ya NO hay respaldo en un
+// archivo local. Aquel respaldo tenia sentido cuando no habia base de datos,
+// pero ahora hace daño: cuando RLS empezo a denegar el acceso, los reportes se
+// siguieron guardando en silencio en un JSON que el usuario jamas podria
+// recuperar, y el fallo de permisos quedo tapado. Un error honesto es mejor.
 //
-// Esto es lo que permite que el botón de alerta funcione de punta a punta HOY,
-// sin esperar a que alguien cree el proyecto en Supabase, y es también la
-// continuidad ante fallas que exige el objetivo #4 del acta.
+// El respaldo local sigue existiendo, pero solo para las localidades
+// (localityStore.js), que es lo que el acta pedia: datos oficiales de solo
+// lectura que no deben dejar el mapa en blanco.
+//
+// Cada funcion recibe el CLIENTE con el que operar. Para lo que toca datos
+// personales se pasa `req.db`, que actua en nombre del usuario, de modo que
+// RLS se aplica aunque este codigo se equivoque.
 
-const fs = require('fs/promises')
-const path = require('path')
 const { randomUUID } = require('crypto')
 const supabase = require('./supabaseService')
 
-const TABLE = 'reports'
-const LOCAL_FILE = path.join(__dirname, '..', '..', 'data', 'reports.json')
+const TABLA = 'reports'
+const VISTA_PUBLICA = 'public_reports'
 
-// Si Supabase falla en caliente, degradamos a local y lo recordamos para no
-// reintentar en cada request (y para poder avisarle al usuario en /health).
-let degradedReason = null
-
-function usingSupabase() {
-    return supabase.isConfigured() && !degradedReason
-}
-
-function backendName() {
-    return usingSupabase() ? 'supabase' : 'local'
-}
-
-function degrade(err) {
-    if (!degradedReason) {
-        degradedReason = err?.message || String(err)
-        console.error('[reportStore] Supabase falló, degradando a almacenamiento local:', degradedReason)
+class StoreError extends Error {
+    constructor(message, codigoPg) {
+        super(message)
+        this.codigoPg = codigoPg
+        // 42501 = permiso denegado, 42P01 = la relacion no existe.
+        // Son errores de configuracion, no del usuario: hay que verlos, no
+        // disimularlos con un respaldo.
+        this.esProblemaDePermisos = codigoPg === '42501' || codigoPg === '42P01'
     }
 }
 
-// ---------- Backend local (archivo JSON) ----------
-
-async function readLocal() {
-    try {
-        const raw = await fs.readFile(LOCAL_FILE, 'utf8')
-        return JSON.parse(raw)
-    } catch (err) {
-        if (err.code === 'ENOENT') return []
-        throw err
-    }
+function lanzar(error, queHaciamos) {
+    throw new StoreError(`${queHaciamos}: ${error.message}`, error.code)
 }
 
-async function writeLocal(reports) {
-    await fs.mkdir(path.dirname(LOCAL_FILE), { recursive: true })
-    await fs.writeFile(LOCAL_FILE, JSON.stringify(reports, null, 2), 'utf8')
+// ---------- Escritura (siempre en nombre del usuario) ----------
+
+async function insert(client, report) {
+    const fila = { id: randomUUID(), created_at: new Date().toISOString(), ...report }
+    const { data, error } = await client.from(TABLA).insert(fila).select().single()
+    if (error) lanzar(error, 'no se pudo guardar el reporte')
+    return data
 }
 
-// ---------- Interfaz pública ----------
-
-async function insert(report) {
-    const row = { id: randomUUID(), created_at: new Date().toISOString(), ...report }
-
-    if (usingSupabase()) {
-        try {
-            const { data, error } = await supabase.getClient()
-                .from(TABLE).insert(row).select().single()
-            if (error) throw error
-            return data
-        } catch (err) {
-            degrade(err)
-        }
-    }
-
-    const reports = await readLocal()
-    reports.push(row)
-    await writeLocal(reports)
-    return row
+async function update(client, id, patch) {
+    const { data, error } = await client.from(TABLA).update(patch).eq('id', id).select().maybeSingle()
+    if (error) lanzar(error, 'no se pudo actualizar el reporte')
+    return data
 }
 
-async function update(id, patch) {
-    if (usingSupabase()) {
-        try {
-            const { data, error } = await supabase.getClient()
-                .from(TABLE).update(patch).eq('id', id).select().single()
-            if (error) throw error
-            return data
-        } catch (err) {
-            degrade(err)
-        }
-    }
+// ---------- Lectura de lo propio ----------
 
-    const reports = await readLocal()
-    const index = reports.findIndex(r => r.id === id)
-    if (index === -1) return null
-    reports[index] = { ...reports[index], ...patch }
-    await writeLocal(reports)
-    return reports[index]
+// RLS ya limita a las filas del usuario; el .eq no sobra, hace explicita la
+// intencion y evita depender de una sola capa.
+async function findById(client, id) {
+    const { data, error } = await client.from(TABLA).select('*').eq('id', id).maybeSingle()
+    if (error) lanzar(error, 'no se pudo leer el reporte')
+    return data
 }
 
-async function findById(id) {
-    if (usingSupabase()) {
-        try {
-            const { data, error } = await supabase.getClient()
-                .from(TABLE).select('*').eq('id', id).maybeSingle()
-            if (error) throw error
-            return data
-        } catch (err) {
-            degrade(err)
-        }
-    }
-
-    const reports = await readLocal()
-    return reports.find(r => r.id === id) || null
+async function listByUser(client) {
+    const { data, error } = await client
+        .from(TABLA).select('*').eq('status', 'active')
+        .order('created_at', { ascending: false })
+    if (error) lanzar(error, 'no se pudieron leer tus reportes')
+    return data || []
 }
 
-// Reportes activos ocurridos desde `sinceIso`. Es la consulta que alimenta
-// tanto la capa del mapa como el cálculo de riesgo dinámico.
-async function listActive(sinceIso) {
-    if (usingSupabase()) {
-        try {
-            const { data, error } = await supabase.getClient()
-                .from(TABLE)
-                .select('*')
-                .eq('status', 'active')
-                .gte('occurred_at', sinceIso)
-                .order('occurred_at', { ascending: false })
-            if (error) throw error
-            return data || []
-        } catch (err) {
-            degrade(err)
-        }
-    }
-
-    const reports = await readLocal()
-    return reports
-        .filter(r => r.status === 'active' && r.occurred_at >= sinceIso)
-        .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at))
+// Base del limite de 5 al dia. Cuenta tambien los cancelados: si no, se podria
+// reportar y deshacer en bucle para saltarse el limite.
+async function countByUser(client, sinceIso) {
+    const { count, error } = await client
+        .from(TABLA).select('id', { count: 'exact', head: true })
+        .gte('created_at', sinceIso)
+    if (error) lanzar(error, 'no se pudo comprobar tu limite diario')
+    return count || 0
 }
 
-// Cuántos reportes lleva este dispositivo desde `sinceIso`. Base del límite de 5/día.
-// Cuenta también los cancelados: si no, alguien podría reportar y deshacer en bucle
-// para saltarse el límite.
-async function countByDevice(deviceHash, sinceIso) {
-    if (usingSupabase()) {
-        try {
-            const { count, error } = await supabase.getClient()
-                .from(TABLE)
-                .select('id', { count: 'exact', head: true })
-                .eq('device_hash', deviceHash)
-                .gte('created_at', sinceIso)
-            if (error) throw error
-            return count || 0
-        } catch (err) {
-            degrade(err)
-        }
-    }
+// ---------- Lectura publica (el mapa) ----------
 
-    const reports = await readLocal()
-    return reports.filter(r => r.device_hash === deviceHash && r.created_at >= sinceIso).length
-}
+// Va contra la VISTA, no contra la tabla. La vista no expone device_hash,
+// user_id ni description, asi que aqui es imposible filtrar datos personales
+// por accidente: no estan.
+async function listPublic(sinceIso) {
+    const client = supabase.getAnonClient()
+    if (!client) throw new StoreError('Supabase no esta configurado')
 
-async function listByDevice(deviceHash) {
-    if (usingSupabase()) {
-        try {
-            const { data, error } = await supabase.getClient()
-                .from(TABLE)
-                .select('*')
-                .eq('device_hash', deviceHash)
-                .eq('status', 'active')
-                .order('created_at', { ascending: false })
-            if (error) throw error
-            return data || []
-        } catch (err) {
-            degrade(err)
-        }
-    }
-
-    const reports = await readLocal()
-    return reports
-        .filter(r => r.device_hash === deviceHash && r.status === 'active')
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    const { data, error } = await client
+        .from(VISTA_PUBLICA).select('*')
+        .gte('occurred_at', sinceIso)
+        .order('occurred_at', { ascending: false })
+    if (error) lanzar(error, 'no se pudo leer la capa de reportes')
+    return data || []
 }
 
 function status() {
     return {
-        backend: backendName(),
-        supabaseConfigured: supabase.isConfigured(),
-        degradedReason
+        backend: supabase.isConfigured() ? 'supabase' : 'sin configurar',
+        adminKey: supabase.hasAdminKey()
     }
 }
 
 module.exports = {
-    insert, update, findById, listActive, countByDevice, listByDevice,
-    backendName, status
+    insert, update, findById, listByUser, countByUser, listPublic,
+    status, StoreError
 }

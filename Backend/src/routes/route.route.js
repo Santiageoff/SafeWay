@@ -7,6 +7,7 @@ const fetch = require('node-fetch')
 const { distanceKm, distancePointToLine } = require('../utils/geo')
 const { buildZones, MAX_AGE_DAYS } = require('../services/dynamicRiskService')
 const store = require('../services/reportStore')
+const localityStore = require('../services/localityStore')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -25,14 +26,23 @@ const SPEED_FACTOR = {
     publico: 1.8  // paradas, trasbordos y esperas
 }
 
+// Carga las zonas con el riesgo ya mezclado con los reportes ciudadanos.
+//
+// Dos fuentes, y cada una degrada distinto a propósito:
+//   · localidades -> Supabase, con respaldo al archivo del repo si no responde.
+//     Son datos oficiales de solo lectura; el mapa no puede quedarse en blanco.
+//   · reportes    -> la VISTA pública sanitizada. Si falla, se sigue mostrando
+//     la línea base histórica: mejor un mapa sin la capa viva que ningún mapa.
 async function loadZones(mode, at = new Date()) {
     const since = new Date(Date.now() - MAX_AGE_DAYS * DAY_MS).toISOString()
+    const { localities, source } = await localityStore.getLocalities()
+
     try {
-        const reports = await store.listActive(since)
-        return { ...buildZones(reports, { mode, at }), live: true }
+        const reports = await store.listPublic(since)
+        return { ...buildZones(reports, { mode, at, localities }), live: true, localitySource: source }
     } catch (err) {
-        console.error('[route] no se pudieron cargar los reportes, usando línea base:', err.message)
-        return { ...buildZones([], { mode, at }), live: false }
+        console.error('[route] no se pudieron cargar los reportes, usando la linea base:', err.message)
+        return { ...buildZones([], { mode, at, localities }), live: false, localitySource: source }
     }
 }
 

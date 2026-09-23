@@ -1,6 +1,11 @@
 // Controlador del botón de alerta.
-// Los routers de este proyecto tenían toda la lógica adentro y los controllers
-// estaban vacíos; aquí se usa el patrón como estaba previsto.
+//
+// Todo lo que toca un reporte concreto pasa por `requireAuth`, así que aquí
+// siempre hay `req.user` (quién es) y `req.db` (un cliente de Supabase que
+// actúa en su nombre, con RLS aplicada).
+//
+// La capa pública del mapa es la única excepción: no pide sesión, porque la
+// gente decide su ruta con lo que ve ahí.
 
 const reportService = require('../services/reportService')
 const store = require('../services/reportStore')
@@ -8,50 +13,54 @@ const { MAX_AGE_DAYS } = require('../services/dynamicRiskService')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-// El identificador de dispositivo viaja en un header. No es autenticación:
-// es un uuid de localStorage que sirve para el límite diario y para devolverle
-// a la persona sus propios reportes sin obligarla a crear cuenta.
-function deviceHashFrom(req) {
-    return req.get('X-Device-Id') || req.body?.deviceHash || null
-}
-
 function handleError(res, err) {
     if (err instanceof reportService.ReportError) {
         return res.status(err.statusCode).json({ success: false, code: err.code, error: err.message })
     }
+
+    // Un fallo de permisos aquí significa que las políticas de RLS y el código
+    // no están de acuerdo. Es un error de configuración y hay que verlo, no
+    // disimularlo con un mensaje genérico.
+    if (err instanceof store.StoreError && err.esProblemaDePermisos) {
+        console.error('[reports] RLS esta rechazando al backend:', err.message)
+        return res.status(500).json({
+            success: false,
+            code: 'permisos_mal_configurados',
+            error: 'Problema de permisos en la base de datos. Avisa al equipo.'
+        })
+    }
+
     console.error('[reports] error inesperado:', err)
     return res.status(500).json({ success: false, error: 'Error interno al procesar el reporte' })
 }
 
-// POST /api/reports — el toque del botón rojo
+// POST /api/reports - el toque del botón rojo. Requiere sesión.
 async function create(req, res) {
     try {
         const { lat, lng, type, occurredAt, occurredEnd, station, description } = req.body || {}
 
-        const { report, remainingToday } = await reportService.createReport({
+        const { report, remainingToday } = await reportService.createReport(req.db, {
             lat, lng, type, occurredAt, occurredEnd, station, description,
-            deviceHash: deviceHashFrom(req)
+            // El dueño sale del JWT verificado, NUNCA del cuerpo de la petición.
+            userId: req.user.id
         })
 
         res.status(201).json({
             success: true,
             report,
             remainingToday,
-            undoWindowSeconds: reportService.UNDO_WINDOW_SECONDS,
-            storage: store.backendName()
+            undoWindowSeconds: reportService.UNDO_WINDOW_SECONDS
         })
     } catch (err) {
         handleError(res, err)
     }
 }
 
-// PATCH /api/reports/:id — completar en frío, con calma
+// PATCH /api/reports/:id - completar en frío, con calma
 async function complete(req, res) {
     try {
         const updated = await reportService.completeReport(
-            req.params.id,
-            deviceHashFrom(req),
-            req.body || {}
+            req.db, req.user.id, req.params.id, req.body || {}
         )
         res.json({ success: true, report: updated })
     } catch (err) {
@@ -59,27 +68,26 @@ async function complete(req, res) {
     }
 }
 
-// DELETE /api/reports/:id — deshacer dentro de los 30 s
+// DELETE /api/reports/:id - deshacer dentro de los 30 s
 async function cancel(req, res) {
     try {
-        await reportService.cancelReport(req.params.id, deviceHashFrom(req))
+        await reportService.cancelReport(req.db, req.user.id, req.params.id)
         res.json({ success: true, cancelled: req.params.id })
     } catch (err) {
         handleError(res, err)
     }
 }
 
-// GET /api/reports — capa de puntos del mapa
+// GET /api/reports - capa de puntos del mapa. PÚBLICA, sin sesión.
+// Lee de la vista sanitizada: sin user_id, sin device_hash, sin descripción.
 async function list(req, res) {
     try {
         const days = Math.min(MAX_AGE_DAYS, Number(req.query.days) || 7)
         const since = new Date(Date.now() - days * DAY_MS).toISOString()
 
-        const reports = await store.listActive(since)
+        const reports = await store.listPublic(since)
         let clusters = reportService.groupReports(reports)
 
-        // Filtro por medio: si vas en carro no te llenamos el mapa de
-        // cosquilleos en bus.
         if (req.query.mode) {
             clusters = clusters.filter(c => reportService.modesForType(c.type).includes(req.query.mode))
         }
@@ -91,26 +99,20 @@ async function list(req, res) {
             success: true,
             days,
             count: clusters.length,
-            storage: store.backendName(),
-            // `reports` interno no se expone: contiene device_hash de otras personas.
-            data: clusters.map(({ reports: _reports, ...cluster }) => cluster)
+            // `reports` interno lleva los tokens de origen; no sale de aquí.
+            data: clusters.map(({ reports: _r, ...cluster }) => cluster)
         })
     } catch (err) {
         handleError(res, err)
     }
 }
 
-// GET /api/reports/mine — los reportes de este dispositivo, para poder completarlos
+// GET /api/reports/mine - los reportes propios, para completarlos con calma
 async function mine(req, res) {
     try {
-        const deviceHash = deviceHashFrom(req)
-        if (!deviceHash) {
-            return res.status(400).json({ success: false, error: 'Falta el identificador de dispositivo' })
-        }
-
-        const reports = await store.listByDevice(deviceHash)
+        const reports = await store.listByUser(req.db)
         const since = new Date(Date.now() - DAY_MS).toISOString()
-        const usedToday = await store.countByDevice(deviceHash, since)
+        const usedToday = await store.countByUser(req.db, since)
 
         res.json({
             success: true,

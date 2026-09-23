@@ -1,25 +1,33 @@
 const express = require('express')
 const router = express.Router()
 
-// Las 20 localidades ya no viven aquí: estaban duplicadas con route.route.js.
-// Ahora salen de ../data/localities a través del motor de riesgo dinámico.
+// Las 20 localidades ya no viven en este repositorio: estan en la tabla
+// `localities` de Supabase y se leen por localityStore, que mantiene el
+// archivo original como respaldo si la base no responde.
 const { distancePointToLine } = require('../utils/geo')
 const { buildZones, MAX_AGE_DAYS } = require('../services/dynamicRiskService')
 const store = require('../services/reportStore')
+const localityStore = require('../services/localityStore')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Carga las zonas con el riesgo ya mezclado con los reportes ciudadanos.
-// Si el almacenamiento falla, se devuelve la línea base histórica en vez de
-// romper el mapa: continuidad del servicio, objetivo #4 del acta.
+//
+// Dos fuentes, y cada una degrada distinto a propósito:
+//   · localidades -> Supabase, con respaldo al archivo del repo si no responde.
+//     Son datos oficiales de solo lectura; el mapa no puede quedarse en blanco.
+//   · reportes    -> la VISTA pública sanitizada. Si falla, se sigue mostrando
+//     la línea base histórica: mejor un mapa sin la capa viva que ningún mapa.
 async function loadZones(mode, at) {
     const since = new Date(Date.now() - MAX_AGE_DAYS * DAY_MS).toISOString()
+    const { localities, source } = await localityStore.getLocalities()
+
     try {
-        const reports = await store.listActive(since)
-        return { ...buildZones(reports, { mode, at }), live: true }
+        const reports = await store.listPublic(since)
+        return { ...buildZones(reports, { mode, at, localities }), live: true, localitySource: source }
     } catch (err) {
-        console.error('[risk] no se pudieron cargar los reportes, usando línea base:', err.message)
-        return { ...buildZones([], { mode, at }), live: false }
+        console.error('[risk] no se pudieron cargar los reportes, usando la linea base:', err.message)
+        return { ...buildZones([], { mode, at, localities }), live: false, localitySource: source }
     }
 }
 
@@ -68,7 +76,9 @@ router.get('/zones', async (req, res) => {
         mode: result.mode,
         timeWindow: result.timeWindow,
         reportClusters: result.clusterCount,
-        storage: store.backendName(),
+        // De donde salio cada mitad del dato, para poder decirselo al usuario
+        // en vez de disimular una degradacion.
+        localitySource: result.localitySource,
         live: result.live
     }
 

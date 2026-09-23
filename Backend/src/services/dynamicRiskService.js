@@ -14,7 +14,6 @@
 //  3. NO ESTIGMATIZAR. El aporte ciudadano es sublineal y tiene techo: un
 //     reporte suelto NUNCA cambia el color de una localidad.
 
-const { localities } = require('../data/localities')
 const { groupReports, modesForType, weightForType, MODES } = require('./reportService')
 
 // Ancla en porcentaje de inseguridad para cada nivel base.
@@ -165,7 +164,9 @@ function dominantWindow(clusters) {
 //
 // `reports` son los reportes activos crudos; aquí se agrupan por hecho.
 // `mode` es el medio seleccionado; `at` la hora de consulta (por defecto, ahora).
-function buildZones(reports = [], { mode = 'carro', at = new Date() } = {}) {
+// `localities` llega como parámetro en vez de importarse: ahora viven en
+// Supabase (localityStore) y ya no en un archivo de este repositorio.
+function buildZones(reports = [], { mode = 'carro', at = new Date(), localities = [] } = {}) {
     const safeMode = MODES.includes(mode) ? mode : 'carro'
     const targetWindow = windowForHour(bogotaHour(at))
     const clusters = groupReports(reports)
