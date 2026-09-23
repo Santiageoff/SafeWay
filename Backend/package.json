@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node start.js",
     "dev": "nodemon start.js",
+    "test": "node --test",
     "check:setup": "node scripts/check-setup.js",
     "verify:rls": "node scripts/verify-rls.js",
     "verify:api": "node scripts/verify-api.js",
