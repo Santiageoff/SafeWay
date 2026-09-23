@@ -75,28 +75,8 @@ async function getLocalities({ force = false } = {}) {
     return { localities: RESPALDO, source: 'respaldo-local', cached: false }
 }
 
-// Escritura de datos oficiales. Requiere service_role: el resto del mundo,
-// incluidos los usuarios con sesión, tiene esta tabla en solo lectura.
-async function upsertLocality(locality) {
-    const admin = supabase.getAdminClient()
-    if (!admin) {
-        throw new Error('Falta SUPABASE_SECRET_KEY: sin ella el backend no puede escribir datos oficiales')
-    }
-
-    const { data, error } = await admin
-        .from('localities')
-        .upsert({ ...locality, updated_at: new Date().toISOString() })
-        .select()
-        .single()
-
-    if (error) throw new Error(error.message)
-
-    cache = null  // invalidar, para que la proxima lectura traiga lo nuevo
-    return data
-}
-
 function status() {
     return { source: ultimaFuente, cachedAt: cacheAt ? new Date(cacheAt).toISOString() : null }
 }
 
-module.exports = { getLocalities, upsertLocality, status }
+module.exports = { getLocalities, status }
