@@ -1,8 +1,8 @@
 # ADR-005 — Cuentas opcionales, reportes ciudadanos y perfil proactivo con consentimiento
 
-- **Estado:** **Aceptada por el director** (2026-09-23) como solicitud de cambio **CR-001**
-  (control integrado de cambios, sección V.E del documento). **Pendiente del aval del docente**,
-  porque cambia una exclusión del alcance aprobado.
+- **Estado:** **Aceptada** (2026-09-23) por el director del proyecto, como solicitud de cambio
+  **CR-001** (control integrado de cambios, sección V.E del documento). El documento del proyecto
+  se actualiza para reflejarla (IV.E, VII.A, VII.B y Anexo A).
 - **Fecha:** 2026-09-23 · **Responsable:** Sergio Aza (decisión) · Julián Hernández (implementación existente)
 
 ## Contexto
@@ -40,7 +40,6 @@ con RLS y el esquema del perfil proactivo asociado a `user_id`.
 - **Pagamos:** tratamos datos personales (ubicación y rutas habituales): política de privacidad,
   consentimiento y borrado. Hay que moderar reportes falsos. Se corrige la configuración de Auth
   (confirmación de correo, contraseña ≥ 8).
-- **Si se rechaza:** se apagan cuentas y reportes, y el perfil proactivo se rehace en el navegador.
 
 ## Cómo se verifica
 - `npm run audit:rls`: toda tabla con RLS (vista `security_audit`).
