@@ -8,3 +8,6 @@ dist
 
 # Respaldo local de reportes ciudadanos (se usa cuando no hay Supabase configurado)
 Backend/data/reports.json
+
+# Configuración personal de Claude Code: cada quien tiene la suya
+.claude/settings.local.json
