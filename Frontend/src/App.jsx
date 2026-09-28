@@ -192,7 +192,7 @@ function App() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="flex flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
         {/* Columna izquierda (computador) */}
         <aside className="hidden w-[440px] shrink-0 flex-col gap-4 overflow-y-auto border-r-3 border-texto p-4 md:flex">
           {reportsStrip}
@@ -227,7 +227,7 @@ function App() {
         </div>
 
         {/* Mapa */}
-        <main className="relative flex-1 p-3 md:p-4">
+        <main className="relative h-[55vh] w-full shrink-0 p-3 md:h-auto md:w-auto md:flex-1 md:shrink md:p-4">
           <div className="relative h-full overflow-hidden rounded-tarjeta border-3 border-texto shadow-dura">
             <MapView
               zones={riskZones}
@@ -271,6 +271,20 @@ function App() {
             )}
           </div>
         </main>
+
+        {/* Zonas de riesgo (celular): la misma lista que en el computador,
+            debajo del mapa en vez de en una columna aparte. */}
+        <div className="border-t-3 border-texto bg-fondo p-3 md:hidden">
+          <div className="rounded-tarjeta border-3 border-texto bg-superficie p-4 shadow-dura">
+            <RiskSummary
+              zones={riskZones}
+              loading={loading}
+              error={error}
+              vehicleType={selectedVehicle}
+              timeWindow={meta.timeWindow}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Hoja inferior con el formulario (celular) */}
