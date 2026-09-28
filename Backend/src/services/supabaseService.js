@@ -22,6 +22,17 @@ const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY
 
 const SIN_SESION = { auth: { persistSession: false, autoRefreshToken: false } }
 
+// Tiempo máximo que se espera a Supabase en una lectura. Sin límite, una base
+// que acepta la conexión pero no contesta (se "cuelga") deja la petición del
+// usuario esperando para siempre y el respaldo nunca entra. Al vencer, la
+// consulta se aborta y se trata igual que cualquier otro error.
+const TIMEOUT_MS = Number(process.env.SUPABASE_TIMEOUT_MS) || 3000
+
+// Señal para `.abortSignal()` de supabase-js: se crea una por consulta.
+function limiteDeEspera() {
+    return AbortSignal.timeout(TIMEOUT_MS)
+}
+
 let anonClient = null
 let adminClient = null
 
@@ -88,6 +99,7 @@ async function checkConnection() {
     }
     try {
         const { error } = await getAnonClient().from('localities').select('id').limit(1)
+            .abortSignal(limiteDeEspera())
         if (error) return { ok: false, reason: error.message }
         return { ok: true }
     } catch (err) {
@@ -103,6 +115,8 @@ module.exports = {
     isConfigured,
     hasAdminKey,
     checkConnection,
+    limiteDeEspera,
+    TIMEOUT_MS,
     // Alias heredado: antes `getClient` era el unico cliente que habia.
     getClient: getAnonClient
 }

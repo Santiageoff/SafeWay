@@ -35,15 +35,21 @@ const SPEED_FACTOR = {
 //     la línea base histórica: mejor un mapa sin la capa viva que ningún mapa.
 async function loadZones(mode, at = new Date()) {
     const since = new Date(Date.now() - MAX_AGE_DAYS * DAY_MS).toISOString()
-    const { localities, source } = await localityStore.getLocalities()
+    // Las dos lecturas van en paralelo: si Supabase se cuelga, el usuario
+    // espera un solo timeout y no la suma de los dos.
+    const [{ localities, source }, reportes] = await Promise.all([
+        localityStore.getLocalities(),
+        store.listPublic(since).then(
+            data => ({ data }),
+            err => ({ err })
+        )
+    ])
 
-    try {
-        const reports = await store.listPublic(since)
-        return { ...buildZones(reports, { mode, at, localities }), live: true, localitySource: source }
-    } catch (err) {
-        console.error('[route] no se pudieron cargar los reportes, usando la linea base:', err.message)
+    if (reportes.err) {
+        console.error('[route] no se pudieron cargar los reportes, usando la linea base:', reportes.err.message)
         return { ...buildZones([], { mode, at, localities }), live: false, localitySource: source }
     }
+    return { ...buildZones(reportes.data, { mode, at, localities }), live: true, localitySource: source }
 }
 
 // Función para obtener ruta real desde OSRM
