@@ -1,3 +1,5 @@
+import { formatDataSource } from '../../utils/dataSource'
+
 function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
   const getRiskLabel = (level) => {
     switch (level) {
@@ -78,6 +80,7 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
     const color = getRiskColor(risk)
     const percentage = zone.insecurityPercentage ?? getPercentageFromRisk(risk)
     const reportCount = zone.reportsAffectingMode || 0
+    const sourceLabel = formatDataSource(zone)
 
     return (
       <div
@@ -128,6 +131,10 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
             }}></div>
           </div>
         </div>
+
+        {sourceLabel && (
+          <p style={{ margin: '8px 0 0', fontSize: '10px', color: '#64748B' }}>{sourceLabel}</p>
+        )}
       </div>
     )
   }

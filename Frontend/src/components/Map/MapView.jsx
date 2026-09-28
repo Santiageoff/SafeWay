@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Circle, CircleMarker, Popup, Polyline, useMap 
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ReportLayer from './ReportLayer'
+import { formatDataSource } from '../../utils/dataSource'
 
 const RISK_COLORS = {
   high: '#EF4444',
@@ -115,7 +116,7 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
     >
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
       />
 
       <MapController zones={validZones} routeData={routeData} />
@@ -204,6 +205,7 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
         const zoneStyle = getZoneStyle(zone)
         const basePercentage = zone.baseInsecurityPercentage
         const raisedByReports = basePercentage != null && percentage > basePercentage
+        const sourceLabel = formatDataSource(zone)
 
         return (
           <Circle
@@ -306,6 +308,12 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
                   }}>
                     <strong>💡 Recomendación:</strong> {zone.recommendation}
                   </div>
+                )}
+
+                {sourceLabel && (
+                  <p style={{ margin: '10px 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                    {sourceLabel}
+                  </p>
                 )}
               </div>
             </Popup>
