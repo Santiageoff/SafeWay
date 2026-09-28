@@ -1,16 +1,37 @@
-# React + Vite
+# SafeWay — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite + Tailwind + react-leaflet. Pide los datos de riesgo y rutas a la
+API del Backend; a Supabase solo le habla para la sesión (inicio de sesión,
+registro, recuperar contraseña).
 
-Currently, two official plugins are available:
+Ver la [guía de arranque completa](../README.md#correrlo-en-local) en la raíz del
+repo (variables de entorno, cómo correr Backend + Frontend juntos).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Comandos
 
-## React Compiler
+```bash
+npm ci
+cp .env.example .env   # opcional: sin .env el login queda deshabilitado, el mapa funciona igual
+npm run dev             # http://localhost:5173
+npm run lint
+npm run build
+npm run preview         # sirve el build de dist/
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Estructura
 
-## Expanding the ESLint configuration
+```
+src/
+  components/   Map, Search, RiskPanel, Alert (reportar), Auth (sesión)
+  context/      sesión de Supabase (AuthContext)
+  lib/          cliente de Supabase
+  services/     llamadas a la API del Backend
+  utils/        fuente/fecha de corte de los datos, geolocalización
+  App.jsx       layout (barra superior, columna de ruta, mapa) y estado global
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Diseño
+
+Opción D ("brutalista vivo"): tokens de color, tipografía, bordes y sombras en
+[tailwind.config.js](tailwind.config.js). Reglas completas en
+[docs/diseno/README.md](../docs/diseno/README.md) de la raíz del repo.
