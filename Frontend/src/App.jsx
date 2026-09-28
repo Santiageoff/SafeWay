@@ -179,7 +179,7 @@ function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-fondo">
       {/* Barra superior */}
-      <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b-3 border-texto bg-barra px-4 md:h-[84px] md:px-6">
+      <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b-3 border-texto bg-barra px-4 py-2 md:min-h-[84px] md:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <img src="/simbolo-d.svg" alt="" className="h-9 w-9 shrink-0 md:h-11 md:w-11" />
           <div className="min-w-0">
@@ -239,8 +239,10 @@ function App() {
               reports={reports}
             />
 
-            {/* Leyenda como stickers, girados -2° */}
-            <div className="pointer-events-none absolute left-3 top-3 z-[900] flex gap-2">
+            {/* Leyenda como stickers, girados -2°. A la derecha para no chocar
+                con el control de zoom de Leaflet, que también vive arriba a
+                la izquierda. */}
+            <div className="pointer-events-none absolute right-3 top-3 z-[900] flex gap-2">
               <span className="-rotate-2 rounded-pastilla border-3 border-texto bg-riesgo-bajo px-2.5 py-1 text-[10px] font-bold text-texto shadow-dura-chica">Bajo</span>
               <span className="-rotate-2 rounded-pastilla border-3 border-texto bg-riesgo-medio px-2.5 py-1 text-[10px] font-bold text-texto shadow-dura-chica">Medio</span>
               <span className="-rotate-2 rounded-pastilla border-3 border-texto bg-riesgo-alto px-2.5 py-1 text-[10px] font-bold text-texto shadow-dura-chica">Alto</span>

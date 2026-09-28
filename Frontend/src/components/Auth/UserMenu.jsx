@@ -26,7 +26,8 @@ function UserMenu() {
         >
           Iniciar sesión
         </button>
-        <p className="mt-1.5 text-[10px] leading-relaxed text-texto-tenue">
+        {/* En la barra compacta de celular no cabe: solo el botón. */}
+        <p className="mt-1.5 hidden text-[10px] leading-relaxed text-texto-tenue md:block">
           El mapa se ve sin cuenta. La sesión hace falta para reportar.
         </p>
         {abierto && <AuthModal onClose={() => setAbierto(false)} />}
