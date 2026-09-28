@@ -16,33 +16,63 @@ body,
 }
 
 body {
-  background: #0A1628;
-  color: #F1F5F9;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #FFF4DE;
+  color: #111111;
+  font-family: Archivo, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Foco visible del diseño D: outline azul en todo lo tocable, nunca "none". */
+:focus-visible {
+  outline: 3px solid #2F5BFF;
+  outline-offset: 2px;
+}
+
+/* El mapa base (CARTO Voyager) no tiene un estilo cartográfico propio para
+   pintar tierra/cerros/río en los tonos cálidos del diseño D: se aproxima
+   con un filtro CSS en vez de depender de un proveedor de teselas nuevo. */
+.leaflet-tile-pane {
+  filter: sepia(35%) saturate(140%) hue-rotate(-8deg) brightness(1.03);
 }
 
 .leaflet-container {
-  background: #0A1628 !important;
+  background: #FBE3B2 !important;
+  font-family: Archivo, sans-serif !important;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #0F2744 !important;
-  color: #F1F5F9 !important;
-  border-radius: 12px !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 3px solid #111111 !important;
+  border-radius: 14px !important;
+  box-shadow: 5px 5px 0 #111111 !important;
 }
 
 .leaflet-popup-tip {
-  background: #0F2744 !important;
+  background: #FFFFFF !important;
+  border: 3px solid #111111 !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-close-button {
+  color: #111111 !important;
+  font-size: 18px !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-top: 3px solid #111111 !important;
+  border-left: 3px solid #111111 !important;
+  border-top-left-radius: 10px !important;
 }
 
 .leaflet-control-zoom a {
-  background: #0F2744 !important;
-  color: #F1F5F9 !important;
-  border: 1px solid #1E3A5F !important;
+  background: #FFFFFF !important;
+  color: #111111 !important;
+  border: 3px solid #111111 !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: #065A82 !important;
+  background: #FFC800 !important;
 }
 
 ::-webkit-scrollbar {
@@ -50,15 +80,20 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0A1628;
+  background: #FFF4DE;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #065A82;
+  background: #111111;
   border-radius: 4px;
 }
 
 .custom-marker {
   background: transparent !important;
   border: none !important;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

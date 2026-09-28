@@ -9,6 +9,10 @@ import { useAuth } from '../../context/useAuth'
 
 const MODOS = { entrar: 'entrar', registro: 'registro', olvide: 'olvide' }
 
+const campo = 'mb-3.5 w-full rounded-campo border-3 border-texto bg-superficie px-3 py-2.5 text-sm text-texto'
+const etiqueta = 'mb-1.5 mt-3 block text-[11px] font-semibold uppercase tracking-wide text-texto-tenue'
+const enlace = 'bg-transparent p-0 text-left text-xs text-enlace underline'
+
 function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
   const { iniciarSesion, registrarse, pedirRecuperacion } = useAuth()
 
@@ -54,135 +58,98 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
   }
 
   const titulos = {
-    entrar: 'Inicia sesión',
-    registro: 'Crea tu cuenta',
-    olvide: 'Recuperar contraseña'
+    entrar: 'INICIA SESIÓN',
+    registro: 'CREA TU CUENTA',
+    olvide: 'RECUPERAR CONTRASEÑA'
   }
 
   return (
-    <div style={fondo} onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
-      <div style={ventana}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', color: '#F1F5F9' }}>{titulos[modo]}</h2>
-          <button onClick={onClose} style={cerrar}>✕</button>
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center bg-texto/60 p-5"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+    >
+      <div className="w-full max-w-[380px] rounded-tarjeta border-3 border-texto bg-superficie p-5 shadow-dura">
+        <div className="flex items-center justify-between">
+          <h2 className="m-0 font-display text-base text-texto">{titulos[modo]}</h2>
+          <button onClick={onClose} className="p-1 text-base text-texto-tenue">✕</button>
         </div>
 
         {motivo && (
-          <div style={motivoCaja}>
+          <div className="mt-3 rounded-campo border-3 border-texto bg-riesgo-medio px-3 py-2.5 text-xs leading-relaxed text-texto">
             {motivo}
           </div>
         )}
 
         <form onSubmit={enviar}>
-          <label style={etiqueta}>Correo</label>
+          <label className={etiqueta}>Correo</label>
           <input
             type="email" required value={email} autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="tucorreo@ejemplo.com" style={campo}
+            placeholder="tucorreo@ejemplo.com" className={campo}
           />
 
           {modo === MODOS.registro && (
             <>
-              <label style={etiqueta}>¿Cómo te llamamos? (opcional)</label>
+              <label className={etiqueta}>¿Cómo te llamamos? (opcional)</label>
               <input
                 value={nombre} onChange={(e) => setNombre(e.target.value)}
-                placeholder="Santi" style={campo} maxLength={60}
+                placeholder="Santi" className={campo} maxLength={60}
               />
             </>
           )}
 
           {modo !== MODOS.olvide && (
             <>
-              <label style={etiqueta}>Contraseña</label>
+              <label className={etiqueta}>Contraseña</label>
               <input
                 type="password" required minLength={6} value={password}
                 autoComplete={modo === MODOS.registro ? 'new-password' : 'current-password'}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres" style={campo}
+                placeholder="Mínimo 6 caracteres" className={campo}
               />
             </>
           )}
 
-          {error && <div style={{ ...caja, borderColor: '#EF4444', color: '#FECACA' }}>{error}</div>}
-          {aviso && <div style={{ ...caja, borderColor: '#22D3EE', color: '#A5F3FC' }}>{aviso}</div>}
+          {error && <div className="mb-3.5 rounded-campo border-3 border-texto bg-aviso px-3 py-2.5 text-xs leading-relaxed text-texto">{error}</div>}
+          {aviso && <div className="mb-3.5 rounded-campo border-3 border-texto bg-ok px-3 py-2.5 text-xs leading-relaxed text-texto">{aviso}</div>}
 
-          <button type="submit" disabled={enviando} style={{ ...boton, opacity: enviando ? 0.6 : 1 }}>
-            {enviando ? 'Un momento…'
-              : modo === MODOS.registro ? 'Crear cuenta'
-              : modo === MODOS.olvide ? 'Enviarme el enlace'
-              : 'Entrar'}
+          <button
+            type="submit"
+            disabled={enviando}
+            className="mt-4 min-h-[44px] w-full rounded-boton border-3 border-texto bg-acento py-3 font-display text-sm text-white shadow-dura transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-dura-chica disabled:opacity-60"
+          >
+            {enviando ? 'UN MOMENTO…'
+              : modo === MODOS.registro ? 'CREAR CUENTA'
+              : modo === MODOS.olvide ? 'ENVIARME EL ENLACE'
+              : 'ENTRAR'}
           </button>
         </form>
 
-        <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div className="mt-3.5 flex flex-col gap-1.5">
           {modo === MODOS.entrar && (
             <>
-              <button onClick={() => { setModo(MODOS.registro); setError(null); setAviso(null) }} style={enlace}>
+              <button onClick={() => { setModo(MODOS.registro); setError(null); setAviso(null) }} className={enlace}>
                 ¿No tienes cuenta? Créala
               </button>
-              <button onClick={() => { setModo(MODOS.olvide); setError(null); setAviso(null) }} style={enlace}>
+              <button onClick={() => { setModo(MODOS.olvide); setError(null); setAviso(null) }} className={enlace}>
                 Olvidé mi contraseña
               </button>
             </>
           )}
           {modo !== MODOS.entrar && (
-            <button onClick={() => { setModo(MODOS.entrar); setError(null); setAviso(null) }} style={enlace}>
+            <button onClick={() => { setModo(MODOS.entrar); setError(null); setAviso(null) }} className={enlace}>
               Volver a iniciar sesión
             </button>
           )}
         </div>
 
-        <p style={{ marginTop: '16px', marginBottom: 0, fontSize: '11px', color: '#64748B', lineHeight: 1.5 }}>
+        <p className="mb-0 mt-4 text-[11px] leading-relaxed text-texto-tenue">
           Solo guardamos tu correo para identificarte. El mapa de riesgo se puede
           ver sin cuenta; la sesión hace falta para reportar y para tus datos.
         </p>
       </div>
     </div>
   )
-}
-
-const fondo = {
-  position: 'fixed', inset: 0, zIndex: 3000,
-  backgroundColor: 'rgba(2, 8, 20, 0.8)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-}
-const ventana = {
-  width: '100%', maxWidth: '380px', padding: '22px', borderRadius: '16px',
-  backgroundColor: '#0A1628', border: '1px solid #1E3A5F',
-  boxShadow: '0 24px 60px rgba(0,0,0,0.6)'
-}
-const etiqueta = {
-  display: 'block', fontSize: '11px', color: '#94A3B8',
-  textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', marginTop: '12px'
-}
-const campo = {
-  width: '100%', boxSizing: 'border-box', padding: '11px 12px',
-  borderRadius: '8px', border: '1px solid #1E3A5F',
-  backgroundColor: '#0F2744', color: '#F1F5F9', fontSize: '14px'
-}
-const boton = {
-  width: '100%', marginTop: '18px', padding: '12px',
-  borderRadius: '10px', border: 'none',
-  backgroundColor: '#22D3EE', color: '#0A1628',
-  fontSize: '14px', fontWeight: '700', cursor: 'pointer'
-}
-const enlace = {
-  background: 'none', border: 'none', color: '#22D3EE',
-  fontSize: '12px', cursor: 'pointer', padding: 0, textAlign: 'left'
-}
-const caja = {
-  marginTop: '14px', padding: '10px 12px', borderRadius: '8px',
-  border: '1px solid', backgroundColor: 'rgba(255,255,255,0.04)',
-  fontSize: '12px', lineHeight: 1.5
-}
-const motivoCaja = {
-  marginTop: '12px', padding: '10px 12px', borderRadius: '8px',
-  border: '1px solid #F59E0B', backgroundColor: 'rgba(245,158,11,0.1)',
-  color: '#FCD34D', fontSize: '12px', lineHeight: 1.5
-}
-const cerrar = {
-  border: 'none', background: 'transparent', color: '#64748B',
-  fontSize: '16px', cursor: 'pointer', padding: '4px'
 }
 
 export default AuthModal

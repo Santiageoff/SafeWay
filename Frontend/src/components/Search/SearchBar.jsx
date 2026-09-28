@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { analyzeRoute } from '../../services/api'
 
-function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
+const RISK_PLATE = {
+  high: { bg: 'bg-riesgo-alto', label: 'RIESGO ALTO' },
+  medium: { bg: 'bg-riesgo-medio', label: 'RIESGO MEDIO' },
+  low: { bg: 'bg-riesgo-bajo', label: 'RIESGO BAJO' },
+}
+
+function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null }) {
   const [originInput, setOriginInput] = useState('')
   const [destinationInput, setDestinationInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -43,274 +49,131 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro' }) {
     }
   }
 
-  const getResultColor = (level) => {
-    switch (level) {
-      case 'high': return '#EF4444'
-      case 'medium': return '#F59E0B'
-      case 'low': return '#10B981'
-      default: return '#6B7280'
-    }
-  }
-
-  const getBarColor = (percentage) => {
-    if (percentage > 70) return '#EF4444'
-    if (percentage > 40) return '#F59E0B'
-    return '#10B981'
-  }
+  const inputClass =
+    'w-full min-h-[44px] rounded-campo border-3 border-texto bg-superficie px-4 py-3 text-sm text-texto placeholder:text-texto-tenue disabled:opacity-60'
 
   return (
     <div>
-      {/* Input Origen */}
-      <div style={{ marginBottom: '12px' }}>
-        <input
-          type="text"
-          value={originInput}
-          onChange={(e) => setOriginInput(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="📍 Ej: Chapinero, Kennedy, Suba..."
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '14px 16px',
-            backgroundColor: '#0F2744',
-            border: '1px solid #1E3A5F',
-            borderRadius: '12px',
-            color: 'white',
-            fontSize: '14px',
-            outline: 'none',
-            opacity: loading ? 0.7 : 1
-          }}
-        />
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-texto-tenue">
+        Planea tu ruta
+      </p>
+
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-texto-tenue">Desde</label>
+          <input
+            type="text"
+            value={originInput}
+            onChange={(e) => setOriginInput(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Ej: Chapinero"
+            disabled={loading}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-texto-tenue">Hasta</label>
+          <input
+            type="text"
+            value={destinationInput}
+            onChange={(e) => setDestinationInput(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Ej: Kennedy"
+            disabled={loading}
+            className={inputClass}
+          />
+        </div>
       </div>
 
-      {/* Input Destino */}
-      <div style={{ marginBottom: '12px' }}>
-        <input
-          type="text"
-          value={destinationInput}
-          onChange={(e) => setDestinationInput(e.target.value)}
-          onKeyDown={handleKeyPress}
-          placeholder="🏁 Ej: Santa Fe, Usme, Bosa..."
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '14px 16px',
-            backgroundColor: '#0F2744',
-            border: '1px solid #1E3A5F',
-            borderRadius: '12px',
-            color: 'white',
-            fontSize: '14px',
-            outline: 'none',
-            opacity: loading ? 0.7 : 1
-          }}
-        />
-      </div>
+      {vehicleSelector && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-texto-tenue">¿Cómo te mueves?</p>
+          {vehicleSelector}
+        </div>
+      )}
 
-      {/* Botón analizar */}
       <button
         onClick={handleAnalyze}
         disabled={loading || !originInput.trim() || !destinationInput.trim()}
-        style={{
-          width: '100%',
-          padding: '14px',
-          backgroundColor: loading ? '#065A82' : '#22D3EE',
-          color: loading ? '#94A3B8' : '#0A1628',
-          border: 'none',
-          borderRadius: '12px',
-          fontSize: '14px',
-          fontWeight: '600',
-          cursor: loading ? 'wait' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          transition: 'all 0.2s'
-        }}
+        className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-boton border-3 border-texto bg-acento px-4 py-3 font-display text-sm text-white shadow-dura transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-dura-chica disabled:opacity-60"
       >
         {loading ? (
           <>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid #94A3B8',
-              borderTopColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}></div>
-            Analizando ruta...
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+            ANALIZANDO…
           </>
         ) : (
-          '🔍 Analizar ruta'
+          '¡ANALIZAR RUTA!'
         )}
       </button>
 
-      {/* Resultado */}
       {error && (
-        <div style={{
-          marginTop: '16px',
-          padding: '12px',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fecaca',
-          borderRadius: '12px',
-          color: '#dc2626',
-          fontSize: '13px'
-        }}>
+        <div className="mt-3 rounded-campo border-3 border-texto bg-aviso px-3 py-2 text-xs text-texto">
           {error}
         </div>
       )}
 
-      {result && !loading && (
-        <div style={{
-          marginTop: '16px',
-          padding: '16px',
-          backgroundColor: '#0F2744',
-          border: '1px solid #1E3A5F',
-          borderRadius: '12px'
-        }}>
-          {/* Nivel de riesgo.
-              /api/route/analyze devuelve `overallRisk`, no `riskLevel`: se leía
-              el campo equivocado y el badge siempre decía "Bajo". */}
-          {(() => {
-            const level = result.overallRisk || result.riskLevel
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <span style={{ fontSize: '12px', color: '#94A3B8' }}>Nivel de riesgo general:</span>
-                <span style={{
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: 'white',
-                  backgroundColor: getResultColor(level)
-                }}>
-                  {level === 'high' ? 'Alto' : level === 'medium' ? 'Medio' : 'Bajo'}
-                </span>
+      {result && !loading && (() => {
+        const level = result.overallRisk || result.riskLevel
+        const plate = RISK_PLATE[level] || RISK_PLATE.low
+        return (
+          <div className="mt-4 rounded-tarjeta border-3 border-texto bg-superficie p-3 shadow-dura">
+            <div className={`inline-block rounded-campo border-3 border-texto ${plate.bg} px-3 py-1 font-display text-xs text-texto`}>
+              {plate.label}
+            </div>
+
+            {result.timeWindow && (
+              <p className="mt-2 text-[11px] text-texto-tenue">
+                Evaluado para la {result.timeWindow.label}
+              </p>
+            )}
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
+                <div className="text-sm font-bold text-texto">{result.routeDistance ?? '—'}</div>
+                <div className="text-[10px] text-texto-tenue">km</div>
               </div>
-            )
-          })()}
+              <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
+                <div className="text-sm font-bold text-texto">{result.routeDuration ?? '—'}</div>
+                <div className="text-[10px] text-texto-tenue">min</div>
+              </div>
+              <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
+                <div className="text-sm font-bold text-texto">{result.insecurityPercentage ?? '—'}%</div>
+                <div className="text-[10px] text-texto-tenue">inseguridad</div>
+              </div>
+            </div>
 
-          {/* Franja horaria en la que se está evaluando */}
-          {result.timeWindow && (
-            <div style={{ fontSize: '11px', color: '#22D3EE', marginBottom: '10px' }}>
-              🕐 Evaluado para la {result.timeWindow.label}
-            </div>
-          )}
+            {result.zonesInRoute?.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-texto-tenue">
+                  Localidades del trayecto
+                </p>
+                <p className="text-xs text-texto">
+                  {result.zonesInRoute.map(z => z.name).join(' · ')}
+                </p>
+              </div>
+            )}
 
-          {/* Route Info Panel */}
-          {(result.routeDistance || result.routeDuration) && (
-            <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {result.routeDistance && (
-                <div style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#0F2744',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <span>📏</span>
-                  <span>Distancia: <strong>{result.routeDistance} km</strong></span>
-                </div>
-              )}
-              {result.routeDuration && (
-                <div style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#0F2744',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <span>⏱️</span>
-                  <span>Tiempo: <strong>{result.routeDuration} min</strong></span>
-                </div>
-              )}
-            </div>
-          )}
+            {result.safestRoute?.avoidZones?.length > 0 && (
+              <div className="mt-3 rounded-campo border-3 border-texto bg-riesgo-alto px-3 py-2 text-xs text-texto">
+                <strong>Evita si puedes:</strong> {result.safestRoute.avoidZones.join(', ')}
+              </div>
+            )}
 
-          {/* Zonas a evitar */}
-          {result.safestRoute?.avoidZones?.length > 0 && (
-            <div style={{
-              marginBottom: '12px',
-              padding: '10px',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid #EF4444',
-              borderRadius: '8px',
-              fontSize: '12px',
-              color: '#F1F5F9'
-            }}>
-              <strong style={{ color: '#EF4444' }}>🛡️ Zonas a evitar:</strong>
-              <span> {result.safestRoute.avoidZones.join(', ')}</span>
-            </div>
-          )}
+            {result.recommendation && (
+              <p className="mt-3 text-xs text-texto-tenue">{result.recommendation}</p>
+            )}
 
-          {/* Barra de progreso */}
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
-              <span style={{ color: '#94A3B8' }}>Porcentaje de inseguridad</span>
-              <span style={{ color: getBarColor(result.insecurityPercentage), fontWeight: '600' }}>
-                {result.insecurityPercentage}%
-              </span>
-            </div>
-            <div style={{ width: '100%', height: '8px', backgroundColor: '#1E3A5F', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${result.insecurityPercentage}%`,
-                height: '100%',
-                backgroundColor: getBarColor(result.insecurityPercentage),
-                borderRadius: '4px'
-              }}></div>
-            </div>
+            {result.tips?.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {result.tips.map((tip, index) => (
+                  <li key={index} className="text-xs text-texto-tenue">· {tip}</li>
+                ))}
+              </ul>
+            )}
           </div>
-
-          {/* Recomendación */}
-          {result.recommendation && (
-            <div style={{
-              padding: '12px',
-              backgroundColor: 'rgba(34, 211, 238, 0.1)',
-              border: '1px solid #22D3EE',
-              borderRadius: '8px',
-              marginBottom: '12px',
-              fontSize: '12px',
-              color: '#22D3EE'
-            }}>
-              <strong>💡 Recomendación:</strong> {result.recommendation}
-            </div>
-          )}
-
-          {/* Tips */}
-          {result.tips && result.tips.length > 0 && (
-            <div>
-              <span style={{ fontSize: '12px', color: '#94A3B8', display: 'block', marginBottom: '8px' }}>
-                Consejos de seguridad:
-              </span>
-              {result.tips.map((tip, index) => (
-                <div key={index} style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '8px',
-                  marginBottom: '6px',
-                  fontSize: '12px',
-                  color: '#F1F5F9'
-                }}>
-                  <span>⚠️</span>
-                  <span>{tip}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        )
+      })()}
     </div>
   )
 }

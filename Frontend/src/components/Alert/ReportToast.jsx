@@ -48,10 +48,12 @@ function ReportToast({ report, remainingToday, undoWindowSeconds = 30, onClose, 
     }
   }
 
+  const shellClass = 'absolute bottom-4 right-4 z-[1200] w-[320px] rounded-tarjeta border-3 border-texto bg-superficie p-4 shadow-dura md:bottom-6 md:right-6'
+
   if (cancelled) {
     return (
-      <div style={shellStyle}>
-        <div style={{ color: '#94A3B8', fontSize: '13px' }}>
+      <div className={shellClass}>
+        <div className="text-sm text-texto-tenue">
           Reporte cancelado. El mapa quedó como estaba.
         </div>
       </div>
@@ -59,35 +61,41 @@ function ReportToast({ report, remainingToday, undoWindowSeconds = 30, onClose, 
   }
 
   return (
-    <div style={shellStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+    <div className={shellClass}>
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '16px' }}>✅</span>
-            <strong style={{ color: '#F1F5F9', fontSize: '14px' }}>Reporte enviado</strong>
+          <div className="flex items-center gap-2">
+            <span className="text-base">✅</span>
+            <strong className="text-sm text-texto">Reporte enviado</strong>
           </div>
-          <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94A3B8' }}>
+          <p className="mt-1 text-xs text-texto-tenue">
             Ya quedó registrado en {report.locality || 'tu zona'}. Puedes cerrar la app.
           </p>
         </div>
 
         {secondsLeft > 0 ? (
-          <button onClick={handleUndo} style={undoButtonStyle}>
+          <button
+            onClick={handleUndo}
+            className="shrink-0 whitespace-nowrap rounded-campo border-3 border-texto bg-riesgo-medio px-3 py-2 text-xs font-semibold text-texto"
+          >
             Deshacer ({secondsLeft}s)
           </button>
         ) : (
-          <button onClick={onClose} style={{ ...undoButtonStyle, borderColor: '#1E3A5F', color: '#94A3B8' }}>
+          <button
+            onClick={onClose}
+            className="shrink-0 whitespace-nowrap rounded-campo border-3 border-texto bg-superficie px-3 py-2 text-xs font-semibold text-texto-tenue"
+          >
             Cerrar
           </button>
         )}
       </div>
 
-      <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #1E3A5F' }}>
-        <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          ¿Qué te robaron? <span style={{ textTransform: 'none', letterSpacing: 0 }}>(opcional, puedes hacerlo después)</span>
+      <div className="mt-3.5 border-t border-texto/20 pt-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-texto-tenue">
+          ¿Qué te robaron? <span className="normal-case tracking-normal font-normal">(opcional, puedes hacerlo después)</span>
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+        <div className="grid grid-cols-3 gap-1.5">
           {REPORT_TYPES.map(t => {
             const active = type === t.id
             return (
@@ -95,76 +103,32 @@ function ReportToast({ report, remainingToday, undoWindowSeconds = 30, onClose, 
                 key={t.id}
                 onClick={() => handleType(t.id)}
                 disabled={saving}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '10px 4px',
-                  borderRadius: '10px',
-                  border: active ? '1px solid #22D3EE' : '1px solid #1E3A5F',
-                  backgroundColor: active ? '#065A82' : '#0F2744',
-                  color: active ? 'white' : '#94A3B8',
-                  fontSize: '10px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
+                className={
+                  'flex flex-col items-center gap-1 rounded-campo border-3 border-texto px-1 py-2.5 text-[10px] font-medium ' +
+                  (active ? 'bg-acento text-white' : 'bg-superficie text-texto-tenue')
+                }
               >
-                <span style={{ fontSize: '18px' }}>{t.icon}</span>
+                <span className="text-lg">{t.icon}</span>
                 {t.label}
               </button>
             )
           })}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', gap: '8px' }}>
-          <button onClick={() => onOpenDetails?.(report)} style={detailsButtonStyle}>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <button
+            onClick={() => onOpenDetails?.(report)}
+            className="rounded-campo border-3 border-texto bg-fondo px-3.5 py-2 text-xs font-semibold text-texto"
+          >
             Agregar detalles
           </button>
-          <span style={{ fontSize: '11px', color: '#64748B' }}>
+          <span className="text-[11px] text-texto-tenue">
             {remainingToday != null ? `Te quedan ${remainingToday} reportes hoy` : ''}
           </span>
         </div>
       </div>
     </div>
   )
-}
-
-const shellStyle = {
-  position: 'absolute',
-  right: '20px',
-  bottom: '24px',
-  zIndex: 1200,
-  width: '320px',
-  padding: '16px',
-  borderRadius: '14px',
-  backgroundColor: '#0A1628',
-  border: '1px solid #22D3EE',
-  boxShadow: '0 16px 40px rgba(0,0,0,0.5)'
-}
-
-const undoButtonStyle = {
-  flexShrink: 0,
-  padding: '8px 12px',
-  borderRadius: '8px',
-  border: '1px solid #F59E0B',
-  backgroundColor: 'transparent',
-  color: '#F59E0B',
-  fontSize: '12px',
-  fontWeight: '600',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap'
-}
-
-const detailsButtonStyle = {
-  padding: '8px 14px',
-  borderRadius: '8px',
-  border: 'none',
-  backgroundColor: '#065A82',
-  color: 'white',
-  fontSize: '12px',
-  fontWeight: '500',
-  cursor: 'pointer'
 }
 
 export default ReportToast

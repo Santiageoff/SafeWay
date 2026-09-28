@@ -32,6 +32,9 @@ function toLocalInput(date) {
   return new Date(d.getTime() - offset).toISOString().slice(0, 16)
 }
 
+const inputClass = 'mb-3.5 w-full rounded-campo border-3 border-texto bg-superficie px-3 py-2.5 text-sm text-texto'
+const labelClass = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-texto-tenue'
+
 function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, onClose }) {
   const isNew = !report
 
@@ -98,39 +101,38 @@ function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, on
   }
 
   return (
-    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
-      <div style={modalStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <h2 style={{ margin: 0, fontSize: '17px', color: '#F1F5F9' }}>
-            {isNew ? 'Reportar un robo' : 'Cuéntanos qué pasó'}
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-texto/60 p-5"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+    >
+      <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto rounded-tarjeta border-3 border-texto bg-superficie p-5 shadow-dura">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="m-0 font-display text-base text-texto">
+            {isNew ? 'REPORTAR UN ROBO' : 'Cuéntanos qué pasó'}
           </h2>
-          <button onClick={onClose} style={closeButtonStyle}>✕</button>
+          <button onClick={onClose} className="p-1 text-base text-texto-tenue">✕</button>
         </div>
-        <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#94A3B8' }}>
+        <p className="mb-4 text-xs text-texto-tenue">
           {isNew
             ? 'Puedes reportar algo que pasó antes. Marca el lugar y la hora.'
             : 'Con calma. Cada dato ayuda a que el mapa avise mejor a otra persona.'}
         </p>
 
         {/* Tipo */}
-        <label style={labelStyle}>¿Qué te robaron?</label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
+        <label className={labelClass}>¿Qué te robaron?</label>
+        <div className="mb-4 grid grid-cols-3 gap-1.5">
           {REPORT_TYPES.map(t => {
             const active = type === t.id
             return (
               <button
                 key={t.id}
                 onClick={() => setType(active ? null : t.id)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                  padding: '10px 4px', borderRadius: '10px',
-                  border: active ? '1px solid #22D3EE' : '1px solid #1E3A5F',
-                  backgroundColor: active ? '#065A82' : '#0F2744',
-                  color: active ? 'white' : '#94A3B8',
-                  fontSize: '10px', cursor: 'pointer'
-                }}
+                className={
+                  'flex min-h-[44px] flex-col items-center gap-1 rounded-campo border-3 border-texto px-1 py-2.5 text-[10px] ' +
+                  (active ? 'bg-acento text-white shadow-dura-chica' : 'bg-superficie text-texto-tenue')
+                }
               >
-                <span style={{ fontSize: '18px' }}>{t.icon}</span>
+                <span className="text-lg">{t.icon}</span>
                 {t.label}
               </button>
             )
@@ -139,38 +141,38 @@ function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, on
 
         {isTransmilenio && (
           <>
-            <label style={labelStyle}>¿En qué estación o ruta?</label>
+            <label className={labelClass}>¿En qué estación o ruta?</label>
             <input
               value={station}
               onChange={(e) => setStation(e.target.value)}
               placeholder="Ej: Av. Jiménez, alimentador K43"
-              style={inputStyle}
+              className={inputClass}
             />
           </>
         )}
 
         {isHome && (
-          <div style={noticeStyle}>
+          <div className="mb-3.5 rounded-campo border-3 border-texto bg-fondo px-3 py-2.5 text-[11px] leading-relaxed text-texto">
             🔒 Para proteger tu privacidad, los robos a vivienda se guardan con la
             ubicación difuminada (unas cuadras). Nadie va a ver en el mapa dónde vives.
           </div>
         )}
 
         {/* Lugar */}
-        <label style={labelStyle}>¿Dónde fue?</label>
+        <label className={labelClass}>¿Dónde fue?</label>
         <select
           value=""
           onChange={(e) => {
             const zone = zones.find(z => String(z.id) === e.target.value)
             if (zone) setPoint(zone.coordinates)
           }}
-          style={{ ...inputStyle, marginBottom: '8px' }}
+          className={`${inputClass} mb-2`}
         >
           <option value="">Saltar a una localidad…</option>
           {sortedZones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
         </select>
 
-        <div style={{ height: '200px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #1E3A5F', marginBottom: '6px' }}>
+        <div className="mb-1.5 h-[200px] overflow-hidden rounded-campo border-3 border-texto">
           <MapContainer center={point || BOGOTA_CENTER} zoom={point ? 14 : 11} style={{ width: '100%', height: '100%' }}>
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -182,31 +184,31 @@ function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, on
               <CircleMarker
                 center={point}
                 radius={9}
-                pathOptions={{ color: '#DC2626', fillColor: '#DC2626', fillOpacity: 0.9, weight: 3 }}
+                pathOptions={{ color: '#111111', fillColor: '#FF3B30', fillOpacity: 0.9, weight: 3 }}
               />
             )}
           </MapContainer>
         </div>
-        <p style={{ margin: '0 0 16px', fontSize: '11px', color: '#64748B' }}>
+        <p className="mb-4 text-[11px] text-texto-tenue">
           Toca el mapa para mover el punto exacto.
         </p>
 
         {/* Cuándo */}
-        <label style={labelStyle}>¿Cuándo fue?</label>
+        <label className={labelClass}>¿Cuándo fue?</label>
         <input
           type="datetime-local"
           value={occurredAt}
           max={toLocalInput(Date.now())}
           onChange={(e) => setOccurredAt(e.target.value)}
-          style={inputStyle}
+          className={inputClass}
         />
 
-        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+        <label className={`${labelClass} mt-1 flex cursor-pointer items-center gap-2`}>
           <input
             type="checkbox"
             checked={unknownTime}
             onChange={(e) => setUnknownTime(e.target.checked)}
-            style={{ accentColor: '#22D3EE' }}
+            className="accent-acento"
           />
           No sé la hora exacta, fue entre esa y otra
         </label>
@@ -218,77 +220,43 @@ function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, on
             value={occurredEnd}
             max={toLocalInput(Date.now())}
             onChange={(e) => setOccurredEnd(e.target.value)}
-            style={inputStyle}
+            className={inputClass}
           />
         )}
 
-        <label style={labelStyle}>¿Algo más? (opcional)</label>
+        <label className={labelClass}>¿Algo más? (opcional)</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="Ej: iban dos en moto, me apuntaron"
-          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          className={`${inputClass} resize-y font-sans`}
         />
 
         {error && (
-          <div style={{ ...noticeStyle, borderColor: '#EF4444', color: '#FECACA', backgroundColor: 'rgba(220,38,38,0.12)' }}>
+          <div className="mb-3.5 rounded-campo border-3 border-texto bg-aviso px-3 py-2.5 text-[11px] leading-relaxed text-texto">
             {error}
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-          <button onClick={onClose} style={{ ...actionButtonStyle, backgroundColor: 'transparent', border: '1px solid #1E3A5F', color: '#94A3B8' }}>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={onClose}
+            className="min-h-[44px] rounded-boton border-3 border-texto bg-superficie px-4 py-3 text-sm font-semibold text-texto-tenue"
+          >
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} style={{ ...actionButtonStyle, flex: 1, opacity: saving ? 0.6 : 1 }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="min-h-[44px] flex-1 rounded-boton border-3 border-texto bg-riesgo-alto px-4 py-3 text-sm font-semibold text-texto shadow-dura-chica disabled:opacity-60"
+          >
             {saving ? 'Guardando…' : isNew ? 'Enviar reporte' : 'Guardar detalles'}
           </button>
         </div>
       </div>
     </div>
   )
-}
-
-const overlayStyle = {
-  position: 'fixed', inset: 0, zIndex: 2000,
-  backgroundColor: 'rgba(2, 8, 20, 0.75)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-}
-
-const modalStyle = {
-  width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto',
-  padding: '20px', borderRadius: '16px',
-  backgroundColor: '#0A1628', border: '1px solid #1E3A5F',
-  boxShadow: '0 24px 60px rgba(0,0,0,0.6)'
-}
-
-const labelStyle = {
-  display: 'block', fontSize: '11px', color: '#94A3B8',
-  textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px'
-}
-
-const inputStyle = {
-  width: '100%', boxSizing: 'border-box', padding: '10px 12px', marginBottom: '14px',
-  borderRadius: '8px', border: '1px solid #1E3A5F',
-  backgroundColor: '#0F2744', color: '#F1F5F9', fontSize: '13px'
-}
-
-const noticeStyle = {
-  padding: '10px 12px', marginBottom: '14px', borderRadius: '8px',
-  border: '1px solid #22D3EE', backgroundColor: 'rgba(34,211,238,0.08)',
-  color: '#A5F3FC', fontSize: '11px', lineHeight: 1.5
-}
-
-const closeButtonStyle = {
-  border: 'none', background: 'transparent', color: '#64748B',
-  fontSize: '16px', cursor: 'pointer', padding: '4px'
-}
-
-const actionButtonStyle = {
-  padding: '12px 18px', borderRadius: '10px', border: 'none',
-  backgroundColor: '#DC2626', color: 'white',
-  fontSize: '14px', fontWeight: '600', cursor: 'pointer'
 }
 
 export default ReportDetails
