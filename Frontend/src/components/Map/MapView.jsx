@@ -212,7 +212,11 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
               opacity: 1
             }}
           >
-            <Popup>
+            {/* maxHeight: el popup trae título + barra + tabla de 5 vehículos +
+                recomendación + fuente, y en un mapa bajo de celular eso es más
+                alto que la tarjeta del mapa y tapa el botón de reportar. Con
+                un tope, el contenido hace scroll adentro en vez de desbordar. */}
+            <Popup maxHeight={260}>
               <div className="min-w-[240px] font-sans text-texto">
                 {/* Título */}
                 <div className="mb-3 flex items-center gap-2">
