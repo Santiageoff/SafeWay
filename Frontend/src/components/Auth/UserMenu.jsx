@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useAuth } from '../../context/useAuth'
-import AuthModal from './AuthModal'
+
+// Solo se carga cuando alguien de verdad va a iniciar sesión: no bloquea el
+// primer pintado del mapa (issue #12: LCP < 3s).
+const AuthModal = lazy(() => import('./AuthModal'))
 
 // Barra de sesion del panel lateral. Con sesion muestra quien eres y deja
 // salir; sin ella, invita a entrar sin bloquear nada: el mapa se ve igual.
@@ -30,7 +33,11 @@ function UserMenu() {
         <p className="mt-1.5 hidden text-[10px] leading-relaxed text-texto-tenue md:block">
           El mapa se ve sin cuenta. La sesión hace falta para reportar.
         </p>
-        {abierto && <AuthModal onClose={() => setAbierto(false)} />}
+        {abierto && (
+          <Suspense fallback={null}>
+            <AuthModal onClose={() => setAbierto(false)} />
+          </Suspense>
+        )}
       </>
     )
   }

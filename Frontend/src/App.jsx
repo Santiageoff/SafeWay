@@ -1,37 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import MapView from './components/Map/MapView'
 import SearchBar from './components/Search/SearchBar'
 import VehicleSelector from './components/Search/VehicleSelector'
 import RiskSummary from './components/RiskPanel/RiskSummary'
 import ReportButton from './components/Alert/ReportButton'
-import ReportToast from './components/Alert/ReportToast'
-import ReportDetails from './components/Alert/ReportDetails'
-import AuthModal from './components/Auth/AuthModal'
-import ResetPassword from './components/Auth/ResetPassword'
 import UserMenu from './components/Auth/UserMenu'
 import { useAuth } from './context/useAuth'
 import { getRiskZones, getReports, getMyReports } from './services/api'
 import './index.css'
 
-// Datos de demostración: solo se usan si el backend no responde. El acta exige
-// que el mapa nunca quede en blanco (objetivo #4, continuidad del servicio).
-const DEMO_ZONES = [
-  { id: 1, name: 'Usme', riskLevel: 'high', coordinates: [4.5115, -74.1144], vehicleRisks: { carro: 'high', moto: 'high', bici: 'medium', 'peatón': 'medium', publico: 'medium' } },
-  { id: 2, name: 'Chapinero', riskLevel: 'medium', coordinates: [4.6329, -74.0579], vehicleRisks: { carro: 'low', moto: 'medium', bici: 'low', 'peatón': 'medium', publico: 'medium' } },
-  { id: 3, name: 'Suba', riskLevel: 'low', coordinates: [4.7167, -74.0833], vehicleRisks: { carro: 'low', moto: 'low', bici: 'low', 'peatón': 'low', publico: 'low' } },
-  { id: 4, name: 'Kennedy', riskLevel: 'medium', coordinates: [4.6248, -74.1501], vehicleRisks: { carro: 'medium', moto: 'high', bici: 'medium', 'peatón': 'high', publico: 'high' } },
-  { id: 5, name: 'Engativá', riskLevel: 'low', coordinates: [4.6833, -74.1167], vehicleRisks: { carro: 'low', moto: 'low', bici: 'low', 'peatón': 'low', publico: 'low' } },
-  { id: 6, name: 'San Cristóbal', riskLevel: 'high', coordinates: [4.5719, -74.0923], vehicleRisks: { carro: 'high', moto: 'high', bici: 'medium', 'peatón': 'high', publico: 'high' } },
-  { id: 7, name: 'Rafael Uribe', riskLevel: 'high', coordinates: [4.5542, -74.1036], vehicleRisks: { carro: 'high', moto: 'high', bici: 'medium', 'peatón': 'high', publico: 'high' } },
-  { id: 8, name: 'Tunjuelito', riskLevel: 'medium', coordinates: [4.5714, -74.1443], vehicleRisks: { carro: 'medium', moto: 'medium', bici: 'medium', 'peatón': 'high', publico: 'high' } },
-  { id: 9, name: 'Barrios Unidos', riskLevel: 'low', coordinates: [4.6850, -74.0763], vehicleRisks: { carro: 'low', moto: 'low', bici: 'low', 'peatón': 'low', publico: 'low' } },
-  { id: 10, name: 'Teusaquillo', riskLevel: 'low', coordinates: [4.6457, -74.0787], vehicleRisks: { carro: 'low', moto: 'low', bici: 'low', 'peatón': 'low', publico: 'low' } },
-  { id: 11, name: 'Santa Fe', riskLevel: 'medium', coordinates: [4.5986, -74.0765], vehicleRisks: { carro: 'medium', moto: 'medium', bici: 'low', 'peatón': 'high', publico: 'high' } },
-  { id: 12, name: 'Antonio Nariño', riskLevel: 'medium', coordinates: [4.5738, -74.0947], vehicleRisks: { carro: 'medium', moto: 'medium', bici: 'medium', 'peatón': 'medium', publico: 'medium' } },
-  { id: 13, name: 'Puente Aranda', riskLevel: 'medium', coordinates: [4.5984, -74.1081], vehicleRisks: { carro: 'medium', moto: 'high', bici: 'medium', 'peatón': 'medium', publico: 'medium' } },
-  { id: 14, name: 'Candelaria', riskLevel: 'medium', coordinates: [4.5826, -74.0746], vehicleRisks: { carro: 'low', moto: 'medium', bici: 'low', 'peatón': 'high', publico: 'high' } },
-  { id: 15, name: 'Usaquén', riskLevel: 'low', coordinates: [4.7135, -74.0327], vehicleRisks: { carro: 'low', moto: 'low', bici: 'low', 'peatón': 'low', publico: 'low' } },
-]
+// El mapa (Leaflet) es lo primero que hay que pintar; estos son paneles que
+// solo aparecen tras una acción del usuario, así que se cargan aparte y no
+// bloquean el LCP en carga inicial (issue #12: LCP < 3s).
+const ReportToast = lazy(() => import('./components/Alert/ReportToast'))
+const ReportDetails = lazy(() => import('./components/Alert/ReportDetails'))
+const AuthModal = lazy(() => import('./components/Auth/AuthModal'))
+const ResetPassword = lazy(() => import('./components/Auth/ResetPassword'))
 
 const VEHICLE_LABELS = { carro: 'Carro', moto: 'Moto', bici: 'Bici', 'peatón': 'A pie', publico: 'Público' }
 
@@ -67,10 +51,11 @@ function App() {
       setMeta(responseMeta)
       setError(null)
     } catch (err) {
+      // El respaldo de datos oficiales ya vive en el backend (localityStore);
+      // si ni así responde, se deja el último mapa cargado en vez de tapar
+      // el error con datos de mentira.
       console.error('Error loading risk zones:', err)
-      setError('No se pudieron cargar las zonas de riesgo')
-      setRiskZones(DEMO_ZONES)
-      setMeta({})
+      setError('No se pudieron cargar las zonas de riesgo. Mostrando lo último disponible.')
     } finally {
       setLoading(false)
     }
@@ -157,8 +142,11 @@ function App() {
       {meta.timeWindow
         ? `Últimos 30 días · viendo el riesgo de la ${meta.timeWindow.label}`
         : 'Últimos 30 días'}
-      {meta.storage === 'local' && (
-        <div className="mt-1 text-riesgo-medio-texto">⚠ Guardando local (Supabase sin configurar)</div>
+      {/* meta.storage no existe en la respuesta de /api/risk/zones (solo en
+          /health); el campo real para saber si se está usando el respaldo
+          del backend en vez de Supabase es meta.localitySource. */}
+      {meta.localitySource === 'respaldo-local' && (
+        <div className="mt-1 text-riesgo-medio-texto">⚠ Datos de respaldo (Supabase sin configurar o caído)</div>
       )}
       {haySesion && pendingCount > 0 && (
         <button
@@ -260,14 +248,16 @@ function App() {
             )}
 
             {toast && (
-              <ReportToast
-                report={toast.report}
-                remainingToday={toast.remainingToday}
-                undoWindowSeconds={toast.undoWindowSeconds}
-                onClose={() => { setToast(null); refreshAll() }}
-                onChanged={refreshAll}
-                onOpenDetails={(report) => { setToast(null); setDetailsFor(report) }}
-              />
+              <Suspense fallback={null}>
+                <ReportToast
+                  report={toast.report}
+                  remainingToday={toast.remainingToday}
+                  undoWindowSeconds={toast.undoWindowSeconds}
+                  onClose={() => { setToast(null); refreshAll() }}
+                  onChanged={refreshAll}
+                  onOpenDetails={(report) => { setToast(null); setDetailsFor(report) }}
+                />
+              </Suspense>
             )}
           </div>
         </main>
@@ -311,21 +301,29 @@ function App() {
       )}
 
       {detailsFor && (
-        <ReportDetails
-          report={detailsFor === 'new' ? null : detailsFor}
-          zones={riskZones}
-          onSaved={() => { setDetailsFor(null); refreshAll() }}
-          onClose={() => { setDetailsFor(null); refreshAll() }}
-        />
+        <Suspense fallback={null}>
+          <ReportDetails
+            report={detailsFor === 'new' ? null : detailsFor}
+            zones={riskZones}
+            onSaved={() => { setDetailsFor(null); refreshAll() }}
+            onClose={() => { setDetailsFor(null); refreshAll() }}
+          />
+        </Suspense>
       )}
 
       {authMotivo !== null && (
-        <AuthModal motivo={authMotivo} onClose={() => setAuthMotivo(null)} />
+        <Suspense fallback={null}>
+          <AuthModal motivo={authMotivo} onClose={() => setAuthMotivo(null)} />
+        </Suspense>
       )}
 
       {/* Llegó desde el enlace de "olvidé mi contraseña": se le pide la nueva
           y no se puede saltar, porque si no se queda dentro con la vieja. */}
-      {recuperando && <ResetPassword />}
+      {recuperando && (
+        <Suspense fallback={null}>
+          <ResetPassword />
+        </Suspense>
+      )}
     </div>
   )
 }

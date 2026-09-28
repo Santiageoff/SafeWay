@@ -1,29 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Circle, CircleMarker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ReportLayer from './ReportLayer'
 import { formatDataSource } from '../../utils/dataSource'
-
-// Colores de riesgo del design system (docs/diseno/README.md). Único lugar
-// donde viven: MapView, RiskSummary y SearchBar los consumen de aquí.
-const RISK_COLORS = {
-  high: '#FF3B30',
-  medium: '#FFC800',
-  low: '#00B86B'
-}
-
-const RISK_TEXT_COLORS = {
-  high: '#C21F14',
-  medium: '#7A5A00',
-  low: '#00703F'
-}
-
-const RISK_LABELS = {
-  high: 'Alto',
-  medium: 'Medio',
-  low: 'Bajo'
-}
+import { RISK_HEX as RISK_COLORS, RISK_TEXT_HEX as RISK_TEXT_COLORS, RISK_LABELS } from '../../utils/risk'
 
 const VEHICLE_ICONS = {
   carro: '🚗',
@@ -33,8 +14,7 @@ const VEHICLE_ICONS = {
   publico: '🚌'
 }
 
-// Respaldo cuando la zona no trae el porcentaje calculado por el backend
-// (por ejemplo, los datos de demostración que usa App.jsx si la API no responde).
+// Respaldo cuando la zona no trae el porcentaje calculado por el backend.
 const riskToPercentage = (risk) => {
   switch (risk) {
     case 'high': return 85
@@ -58,16 +38,25 @@ function getBarTextColor(percentage) {
 
 function MapController({ zones, routeData }) {
   const map = useMap()
+  const didFitZones = useRef(false)
+  const hadRoute = useRef(false)
 
   useEffect(() => {
     // Auto zoom to route when routeData exists
     if (routeData?.routeCoordinates?.length > 0) {
+      hadRoute.current = true
       const bounds = L.latLngBounds(routeData.routeCoordinates)
       map.fitBounds(bounds, { padding: [60, 60] })
       return
     }
 
-    if (!zones || zones.length === 0) return
+    // Encuadrar las 20 localidades solo hace falta una vez al cargar y al
+    // volver de ver una ruta (cambiar de vehículo la limpia): repetirlo en
+    // cada recarga (p. ej. "Actualizar datos") descartaba las teselas ya
+    // pedidas y le movía el mapa a quien lo estaba explorando.
+    const volviendoDeRuta = hadRoute.current
+    hadRoute.current = false
+    if ((didFitZones.current && !volviendoDeRuta) || !zones || zones.length === 0) return
 
     const validCoords = zones
       .filter(z => Array.isArray(z.coordinates) && z.coordinates.length === 2)
@@ -76,6 +65,7 @@ function MapController({ zones, routeData }) {
     if (validCoords.length > 0) {
       const bounds = L.latLngBounds(validCoords)
       map.fitBounds(bounds, { padding: [50, 50] })
+      didFitZones.current = true
     }
   }, [zones, routeData, map])
 
@@ -119,8 +109,12 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
 
   return (
     <MapContainer
-      center={[4.711, -74.0721]}
-      zoom={11}
+      // Centro y zoom ya calculados para las 20 localidades (de Usaquén a
+      // Sumapaz): arrancar aquí evita pedir un primer set de teselas a un
+      // zoom que igual se va a descartar en cuanto fitBounds calcule el
+      // real, que es lo que más tardaba en el LCP (issue #12).
+      center={[4.391, -74.195]}
+      zoom={9}
       style={{ width: '100%', height: '100%' }}
     >
       {/* El basemap gratuito de CARTO (basemaps.cartocdn.com) empezó a pedir
