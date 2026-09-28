@@ -2,5 +2,9 @@ node_modules
 .env
 dist
 
+# Notas de trabajo internas: instrucciones, credenciales pasadas por chat,
+# capturas de diseño. Nunca se sube al repo.
+/Documentos/
+
 # Respaldo local de reportes ciudadanos (se usa cuando no hay Supabase configurado)
 Backend/data/reports.json
