@@ -1,13 +1,8 @@
 import { formatDataSource } from '../../utils/dataSource'
-
-const RISK_STYLE = {
-  high: { bar: 'bg-riesgo-alto', text: 'text-riesgo-alto-texto', label: 'Alto' },
-  medium: { bar: 'bg-riesgo-medio', text: 'text-riesgo-medio-texto', label: 'Medio' },
-  low: { bar: 'bg-riesgo-bajo', text: 'text-riesgo-bajo-texto', label: 'Bajo' },
-}
+import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 
 function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
-  // Respaldo cuando la zona no trae el porcentaje del backend (datos de demostración)
+  // Respaldo cuando la zona no trae el porcentaje del backend
   const getPercentageFromRisk = (level) => {
     switch (level) {
       case 'high': return 85
@@ -37,11 +32,12 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
     )
   }
 
-  if (error) {
+  // Si falló la carga pero ya había un mapa cargado, se avisa sin tapar esa
+  // lista: es mejor mostrar el último dato bueno que una pantalla en blanco.
+  if (error && sortedZones.length === 0) {
     return (
       <div className="rounded-tarjeta border-3 border-texto bg-aviso p-4 text-center">
         <p className="m-0 text-sm text-texto">{error}</p>
-        <p className="mt-2 text-xs text-texto-tenue">Mostrando datos de demostración</p>
       </div>
     )
   }
@@ -52,7 +48,7 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
 
   const renderZoneCard = (zone) => {
     const risk = getVehicleRisk(zone)
-    const style = RISK_STYLE[risk] || RISK_STYLE.low
+    const style = RISK_TAILWIND[risk] || RISK_TAILWIND.low
     const percentage = zone.insecurityPercentage ?? getPercentageFromRisk(risk)
     const reportCount = zone.reportsAffectingMode || 0
     const sourceLabel = formatDataSource(zone)
@@ -66,8 +62,8 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
               <span className="ml-1.5 text-[10px] font-medium text-riesgo-alto-texto">🚨 {reportCount}</span>
             )}
           </span>
-          <span className={`rounded-pastilla border-3 border-texto px-2 py-0.5 text-[10px] font-bold text-texto ${style.bar}`}>
-            {style.label}
+          <span className={`rounded-pastilla border-3 border-texto px-2 py-0.5 text-[10px] font-bold text-texto ${style.bg}`}>
+            {RISK_LABELS[risk]}
           </span>
         </div>
 
@@ -77,7 +73,7 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
             <span className={`font-semibold ${style.text}`}>{percentage}%</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full border border-texto/30 bg-fondo">
-            <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${percentage}%` }}></div>
+            <div className={`h-full rounded-full ${style.bg}`} style={{ width: `${percentage}%` }}></div>
           </div>
         </div>
 
@@ -97,6 +93,9 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
             que tocar ningún control. Solo se dice qué se está viendo. */}
         {timeWindow && (
           <p className="m-0 mt-1.5 text-[11px] text-enlace">🕐 Riesgo de la {timeWindow.label}</p>
+        )}
+        {error && (
+          <p className="m-0 mt-1.5 text-[11px] text-riesgo-alto-texto">⚠ {error}</p>
         )}
       </div>
 

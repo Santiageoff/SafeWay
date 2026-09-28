@@ -1,11 +1,6 @@
 import { useState } from 'react'
 import { analyzeRoute } from '../../services/api'
-
-const RISK_PLATE = {
-  high: { bg: 'bg-riesgo-alto', label: 'RIESGO ALTO' },
-  medium: { bg: 'bg-riesgo-medio', label: 'RIESGO MEDIO' },
-  low: { bg: 'bg-riesgo-bajo', label: 'RIESGO BAJO' },
-}
+import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 
 function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null }) {
   const [originInput, setOriginInput] = useState('')
@@ -115,11 +110,11 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
 
       {result && !loading && (() => {
         const level = result.overallRisk || result.riskLevel
-        const plate = RISK_PLATE[level] || RISK_PLATE.low
+        const plate = RISK_TAILWIND[level] || RISK_TAILWIND.low
         return (
           <div className="mt-4 rounded-tarjeta border-3 border-texto bg-superficie p-3 shadow-dura">
             <div className={`inline-block rounded-campo border-3 border-texto ${plate.bg} px-3 py-1 font-display text-xs text-texto`}>
-              {plate.label}
+              RIESGO {RISK_LABELS[level]?.toUpperCase() || RISK_LABELS.low.toUpperCase()}
             </div>
 
             {result.timeWindow && (
