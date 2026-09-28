@@ -185,6 +185,37 @@ opcional, entero de 1 a 365, 30 por defecto.
 | `porcentajeEvitaAlto` | % de rutas que no pasan por ninguna zona de riesgo alto para su medio |
 | `porcentajeRutaReal` | % de rutas calculadas con OSRM (el resto, línea recta) |
 
+---
+
+## Fuentes de datos complementarias (issue #4 · Anexo A y IV)
+
+Hurto a vehículos y a residencias (Secretaría Distrital de Seguridad, Convivencia y Justicia —
+capa "Delitos Alto Impacto Localidad") y hurtos en transporte público (reportes ciudadanos,
+CR-001). Ver `data-processing/README.md` para de dónde sale cada fuente y cómo se refresca.
+
+### `GET /api/sources`
+Las 20 localidades con las tres fuentes. No exige sesión: son datos oficiales de solo lectura,
+igual que `/api/risk/zones`.
+```json
+{
+  "success": true,
+  "total": 20,
+  "data": [{
+    "localityId": 8, "localityName": "Kennedy",
+    "period": "2026-ene-ago", "source": "SDSCJ - Delito de Alto Impacto (oaiee.scj.gov.co)",
+    "hurtoAutomotores": 352, "hurtoMotocicletas": 360, "hurtoResidencias": 469,
+    "hurtoTransportePublico": 0
+  }]
+}
+```
+`hurtoTransportePublico` viene de los reportes ciudadanos de tipo `transmilenio`: puede estar en
+0 mientras no haya reportes de ese tipo en esa localidad, no es un respaldo con relleno.
+
+### `GET /api/sources/:localityId`
+Una localidad (1-20). `404` si no hay datos cargados para ese id, `400` si no es un entero.
+
+Errores: `503 fuentes_no_disponibles` si Supabase no está configurado o no responde.
+
 Con 0 consultas, los percentiles y porcentajes vienen en `null`. Errores: `400` `dias` inválido ·
 `503` (`metricas_no_disponibles`) el backend no tiene `SUPABASE_SECRET_KEY` o Supabase no respondió.
 

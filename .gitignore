@@ -11,3 +11,7 @@ Backend/data/reports.json
 
 # Configuración personal de Claude Code: cada quien tiene la suya
 .claude/settings.local.json
+
+# Salida generada por los scripts de data-processing (CSV/SQL reproducibles
+# desde cero con clean_data.py + generate_risk_zones.py)
+data-processing/output/
