@@ -3,6 +3,7 @@ const cors = require('cors')
 require('dotenv').config()
 
 const riskRoutes = require('./routes/risk.routes')
+const profileRoutes = require('./routes/profile.routes')
 const routeRoutes = require('./routes/route.route')
 const reportRoutes = require('./routes/report.routes')
 const reportStore = require('./services/reportStore')
@@ -41,6 +42,7 @@ app.use(cors({
 app.use(express.json({ limit: '32kb' }))
 
 app.use('/api/risk', riskRoutes)
+app.use('/api/profile', profileRoutes)
 app.use('/api/route', routeRoutes)
 app.use('/api/reports', reportRoutes)
 
