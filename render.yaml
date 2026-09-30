@@ -1,0 +1,25 @@
+# Despliegue del backend en Render (plan gratis) — issue #13.
+# Render lee este archivo al crear el servicio con "New > Blueprint".
+# Guía completa: docs/despliegue-backend.md
+services:
+  - type: web
+    name: safeway-api
+    runtime: node
+    plan: free
+    rootDir: Backend
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/app.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # sync: false = Render las pide al crear el servicio; no quedan en el repo.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
