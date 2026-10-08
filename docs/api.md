@@ -54,15 +54,15 @@ Las 20 localidades con el riesgo del momento.
 `meta.live: false` = no se pudieron leer los reportes ciudadanos y se muestra solo la línea base.
 
 ### `GET /api/risk/zones/:id`
-Una localidad por id (1-20). Acepta `mode` y `at`. `404` si no existe.
+Una localidad por id (1-20). Acepta `mode` y `at`. `400` si el id no es un entero · `404` si no existe.
 
 ### `GET /api/risk/zone/:localidad`
 Una localidad por nombre (exacto, o si no, que contenga el texto). Acepta `vehicle` o `mode`, y
 `at`. `404` si no existe. La usa el frontend para el detalle.
 
 ### `GET /api/risk/search?q=<texto>`
-Hasta 5 localidades cuyo nombre contiene `q`. `400` si `q` está vacío. (Hace lo mismo que
-`/zones?q=`; candidato a unificarse.)
+Hasta 5 localidades cuyo nombre contiene `q`. `400` si `q` está vacío o viene repetido. (Hace
+lo mismo que `/zones?q=`; candidato a unificarse.)
 
 ---
 
@@ -108,19 +108,19 @@ Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
 | `overallRisk` | El **peor** nivel, para ese medio, entre las localidades a < 3 km del trayecto |
 | `insecurityPercentage` | Promedio del % de inseguridad de esas localidades (5 si no hay ninguna) |
 | `routeDistance` / `routeDuration` | km y minutos. La duración de moto, bici, a pie y público es un factor sobre la de carro |
-| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió, línea recta estimada |
+| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió en 4 s (o no devolvió ruta), línea recta estimada |
 | `zonesInRoute` | Localidades consideradas. **Hoy se miden contra la línea recta origen-destino**, no contra `routeCoordinates` (pendiente, paquete 4.2) |
 
-Errores: `400` falta un campo o `vehicleType` inválido · `404` no se encontró la localidad de
-origen o de destino. No exige sesión. ⚠️ Hoy un `origin` que no es texto (p. ej. `123`) responde
-`500` en vez de `400` (paquete 3.2).
+Errores: `400` falta un campo, `origin` o `destination` no son texto, o `vehicleType` inválido ·
+`404` no se encontró la localidad de origen o de destino. No exige sesión.
 
-### `POST /api/risk/analyze` — ⚠️ obsoleto
-Segundo algoritmo (promedio, umbral 2 km, recibe coordenadas). **No lo usa el frontend** y da
-resultados distintos a `/api/route/analyze`. Se elimina o se unifica en el paquete 3.2.
+El servidor de rutas se configura con `OSRM_URL` (por defecto el OSRM público) y
+`OSRM_TIMEOUT_MS` (4000). La lógica vive en `services/routeAnalysisService.js` (funciones puras),
+`services/routingService.js` (OSRM) y `services/zoneService.js` (zonas).
 
-### `GET /api/route/plan` — ⚠️ sin implementar
-Responde `"en desarrollo"`. Se elimina en el paquete 3.2.
+> `POST /api/risk/analyze` (un segundo algoritmo que daba resultados distintos) y
+> `GET /api/route/plan` (respondía "en desarrollo") **se eliminaron** en el issue #2. Hoy
+> responden `404`.
 
 ---
 
@@ -154,6 +154,75 @@ Completa un reporte propio: `type`, `station`, `description` (máx. 500), rango 
 
 ### `DELETE /api/reports/:id` 🔒
 Deshace un reporte propio dentro de los 30 s siguientes.
+
+---
+
+## Indicadores (issue #7 · III.F del documento)
+
+### `GET /api/metrics/resumen?dias=30`
+Los tres indicadores del documento, **solo agregados** (nunca filas individuales). `dias` es
+opcional, entero de 1 a 365, 30 por defecto.
+```json
+{
+  "success": true,
+  "data": {
+    "desde": "2026-08-24T23:40:00.000Z",
+    "dias": 30,
+    "totalConsultas": 128,
+    "duracionMs": { "p50": 640, "p90": 1850 },
+    "porcentajeRespaldo": 3.1,
+    "porcentajeEvitaAlto": 42.2,
+    "porcentajeRutaReal": 96.9
+  }
+}
+```
+
+| Campo | Significado |
+|---|---|
+| `totalConsultas` | Análisis de ruta registrados en el periodo |
+| `duracionMs` | Percentiles 50 y 90 del tiempo de respuesta del análisis, en ms |
+| `porcentajeRespaldo` | % de consultas que cayeron al dataset de respaldo en vez de Supabase |
+| `porcentajeEvitaAlto` | % de rutas que no pasan por ninguna zona de riesgo alto para su medio |
+| `porcentajeRutaReal` | % de rutas calculadas con OSRM (el resto, línea recta) |
+
+---
+
+## Fuentes de datos complementarias (issue #4 · Anexo A y IV)
+
+Hurto a vehículos y a residencias (Secretaría Distrital de Seguridad, Convivencia y Justicia —
+capa "Delitos Alto Impacto Localidad") y hurtos en transporte público (reportes ciudadanos,
+CR-001). Ver `data-processing/README.md` para de dónde sale cada fuente y cómo se refresca.
+
+### `GET /api/sources`
+Las 20 localidades con las tres fuentes. No exige sesión: son datos oficiales de solo lectura,
+igual que `/api/risk/zones`.
+```json
+{
+  "success": true,
+  "total": 20,
+  "data": [{
+    "localityId": 8, "localityName": "Kennedy",
+    "period": "2026-ene-ago", "source": "SDSCJ - Delito de Alto Impacto (oaiee.scj.gov.co)",
+    "hurtoAutomotores": 352, "hurtoMotocicletas": 360, "hurtoResidencias": 469,
+    "hurtoTransportePublico": 0
+  }]
+}
+```
+`hurtoTransportePublico` viene de los reportes ciudadanos de tipo `transmilenio`: puede estar en
+0 mientras no haya reportes de ese tipo en esa localidad, no es un respaldo con relleno.
+
+### `GET /api/sources/:localityId`
+Una localidad (1-20). `404` si no hay datos cargados para ese id, `400` si no es un entero.
+
+Errores: `503 fuentes_no_disponibles` si Supabase no está configurado o no responde.
+
+Con 0 consultas, los percentiles y porcentajes vienen en `null`. Errores: `400` `dias` inválido ·
+`503` (`metricas_no_disponibles`) el backend no tiene `SUPABASE_SECRET_KEY` o Supabase no respondió.
+
+Los datos salen de la tabla `route_metrics`, sin datos personales: guarda la **localidad** de
+origen y destino, nunca coordenadas, IP ni `user_id`. Solo el backend la lee y escribe (RLS sin
+políticas). ⚠️ Hoy el análisis de ruta todavía no registra métricas: se conecta al terminar la
+reorganización de `route.route.js` (#2, #5, #6).
 
 ---
 

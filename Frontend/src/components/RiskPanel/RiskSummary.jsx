@@ -1,23 +1,8 @@
+import { formatDataSource } from '../../utils/dataSource'
+import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
+
 function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
-  const getRiskLabel = (level) => {
-    switch (level) {
-      case 'high': return 'Alto'
-      case 'medium': return 'Medio'
-      case 'low': return 'Bajo'
-      default: return 'N/A'
-    }
-  }
-
-  const getRiskColor = (level) => {
-    switch (level) {
-      case 'high': return '#EF4444'
-      case 'medium': return '#F59E0B'
-      case 'low': return '#10B981'
-      default: return '#6B7280'
-    }
-  }
-
-  // Respaldo cuando la zona no trae el porcentaje del backend (datos de demostración)
+  // Respaldo cuando la zona no trae el porcentaje del backend
   const getPercentageFromRisk = (level) => {
     switch (level) {
       case 'high': return 85
@@ -41,30 +26,18 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '160px' }}>
-        <div style={{
-          width: '32px',
-          height: '32px',
-          border: '2px solid #22D3EE',
-          borderTopColor: 'transparent',
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite'
-        }}></div>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div className="flex h-40 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-texto border-t-transparent"></div>
       </div>
     )
   }
 
-  if (error) {
+  // Si falló la carga pero ya había un mapa cargado, se avisa sin tapar esa
+  // lista: es mejor mostrar el último dato bueno que una pantalla en blanco.
+  if (error && sortedZones.length === 0) {
     return (
-      <div style={{
-        padding: '16px',
-        backgroundColor: '#fef2f2',
-        border: '1px solid #fecaca',
-        borderRadius: '12px'
-      }}>
-        <p style={{ color: '#dc2626', fontSize: '14px', textAlign: 'center', margin: 0 }}>{error}</p>
-        <p style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginTop: '8px' }}>Mostrando datos de demostración</p>
+      <div className="rounded-tarjeta border-3 border-texto bg-aviso p-4 text-center">
+        <p className="m-0 text-sm text-texto">{error}</p>
       </div>
     )
   }
@@ -75,85 +48,61 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
 
   const renderZoneCard = (zone) => {
     const risk = getVehicleRisk(zone)
-    const color = getRiskColor(risk)
+    const style = RISK_TAILWIND[risk] || RISK_TAILWIND.low
     const percentage = zone.insecurityPercentage ?? getPercentageFromRisk(risk)
     const reportCount = zone.reportsAffectingMode || 0
+    const sourceLabel = formatDataSource(zone)
 
     return (
-      <div
-        key={zone.id}
-        style={{
-          padding: '12px',
-          backgroundColor: '#0F2744',
-          border: `1px solid ${color}40`,
-          borderRadius: '10px',
-          marginBottom: '8px',
-          cursor: 'pointer',
-          transition: 'all 0.2s'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>
+      <div key={zone.id} className="mb-2 rounded-campo border-3 border-texto bg-superficie p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-texto">
             {zone.name}
             {reportCount > 0 && (
-              <span style={{ marginLeft: '6px', fontSize: '10px', color: '#FCD34D', fontWeight: '500' }}>
-                🚨 {reportCount}
-              </span>
+              <span className="ml-1.5 text-[10px] font-medium text-riesgo-alto-texto">🚨 {reportCount}</span>
             )}
           </span>
-          <span style={{
-            padding: '2px 8px',
-            borderRadius: '12px',
-            fontSize: '10px',
-            fontWeight: '600',
-            color: 'white',
-            backgroundColor: color
-          }}>
-            {getRiskLabel(risk)}
+          <span className={`rounded-pastilla border-3 border-texto px-2 py-0.5 text-[10px] font-bold text-texto ${style.bg}`}>
+            {RISK_LABELS[risk]}
           </span>
         </div>
 
-        {/* Mini barra de porcentaje */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
-            <span style={{ color: '#94A3B8' }}>Inseguridad</span>
-            <span style={{ color: color, fontWeight: '600' }}>{percentage}%</span>
+          <div className="mb-1 flex justify-between text-[10px]">
+            <span className="text-texto-tenue">Inseguridad</span>
+            <span className={`font-semibold ${style.text}`}>{percentage}%</span>
           </div>
-          <div style={{ width: '100%', height: '4px', backgroundColor: '#1E3A5F', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{
-              width: `${percentage}%`,
-              height: '100%',
-              backgroundColor: color,
-              borderRadius: '2px'
-            }}></div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full border border-texto/30 bg-fondo">
+            <div className={`h-full rounded-full ${style.bg}`} style={{ width: `${percentage}%` }}></div>
           </div>
         </div>
+
+        {sourceLabel && (
+          <p className="mt-2 text-[10px] text-texto-tenue">{sourceLabel}</p>
+        )}
       </div>
     )
   }
 
   return (
     <div>
-      <div style={{ marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '14px', fontWeight: '600', color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
-          Zonas de Riesgo
-        </h2>
-        <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px', margin: 0 }}>
-          {zones?.length || 0} localidades en Bogotá
-        </p>
+      <div className="mb-4">
+        <h2 className="m-0 text-sm font-semibold uppercase tracking-wide text-texto">Zonas de riesgo</h2>
+        <p className="m-0 mt-1 text-xs text-texto-tenue">{zones?.length || 0} localidades en Bogotá</p>
         {/* Contexto horario: el mapa ya está pintado para esta franja, no hay
             que tocar ningún control. Solo se dice qué se está viendo. */}
         {timeWindow && (
-          <p style={{ fontSize: '11px', color: '#22D3EE', margin: '6px 0 0' }}>
-            🕐 Riesgo de la {timeWindow.label}
-          </p>
+          <p className="m-0 mt-1.5 text-[11px] text-enlace">🕐 Riesgo de la {timeWindow.label}</p>
+        )}
+        {error && (
+          <p className="m-0 mt-1.5 text-[11px] text-riesgo-alto-texto">⚠ {error}</p>
         )}
       </div>
 
       {highRiskZones.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#EF4444' }}></span>
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-texto-tenue">
+            <span className="h-2 w-2 rounded-full bg-riesgo-alto"></span>
             Alto riesgo ({highRiskZones.length})
           </div>
           {highRiskZones.map(renderZoneCard)}
@@ -161,9 +110,9 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
       )}
 
       {mediumRiskZones.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B' }}></span>
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-texto-tenue">
+            <span className="h-2 w-2 rounded-full bg-riesgo-medio"></span>
             Riesgo medio ({mediumRiskZones.length})
           </div>
           {mediumRiskZones.map(renderZoneCard)}
@@ -171,9 +120,9 @@ function RiskSummary({ zones, loading, error, vehicleType, timeWindow }) {
       )}
 
       {lowRiskZones.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-texto-tenue">
+            <span className="h-2 w-2 rounded-full bg-riesgo-bajo"></span>
             Bajo riesgo ({lowRiskZones.length})
           </div>
           {lowRiskZones.map(renderZoneCard)}

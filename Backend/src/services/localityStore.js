@@ -15,8 +15,12 @@ const supabase = require('./supabaseService')
 // Cache en memoria: las cifras oficiales no cambian de un minuto a otro y
 // estas filas se leen en cada consulta del mapa.
 const TTL_MS = 5 * 60 * 1000
+// En respaldo se vuelve a intentar Supabase mucho antes: si solo fue un corte
+// breve, el mapa vuelve a los datos reales en segundos y no en 5 minutos.
+const REINTENTO_MS = Number(process.env.SUPABASE_RETRY_MS) || 30 * 1000
 let cache = null
 let cacheAt = 0
+let cacheTtl = TTL_MS
 let ultimaFuente = 'desconocida'
 
 // La tabla usa snake_case y columnas separadas para lat/lng; el resto de la
@@ -41,7 +45,7 @@ function desdeFila(fila) {
 }
 
 async function getLocalities({ force = false } = {}) {
-    if (!force && cache && Date.now() - cacheAt < TTL_MS) {
+    if (!force && cache && Date.now() - cacheAt < cacheTtl) {
         return { localities: cache, source: ultimaFuente, cached: true }
     }
 
@@ -53,12 +57,14 @@ async function getLocalities({ force = false } = {}) {
                 .from('localities')
                 .select('*')
                 .order('id', { ascending: true })
+                .abortSignal(supabase.limiteDeEspera())
 
             if (error) throw new Error(error.message)
 
             if (data && data.length > 0) {
                 cache = data.map(desdeFila)
                 cacheAt = Date.now()
+                cacheTtl = TTL_MS
                 ultimaFuente = 'supabase'
                 return { localities: cache, source: 'supabase', cached: false }
             }
@@ -71,32 +77,13 @@ async function getLocalities({ force = false } = {}) {
 
     cache = RESPALDO
     cacheAt = Date.now()
+    cacheTtl = REINTENTO_MS
     ultimaFuente = 'respaldo-local'
     return { localities: RESPALDO, source: 'respaldo-local', cached: false }
-}
-
-// Escritura de datos oficiales. Requiere service_role: el resto del mundo,
-// incluidos los usuarios con sesión, tiene esta tabla en solo lectura.
-async function upsertLocality(locality) {
-    const admin = supabase.getAdminClient()
-    if (!admin) {
-        throw new Error('Falta SUPABASE_SECRET_KEY: sin ella el backend no puede escribir datos oficiales')
-    }
-
-    const { data, error } = await admin
-        .from('localities')
-        .upsert({ ...locality, updated_at: new Date().toISOString() })
-        .select()
-        .single()
-
-    if (error) throw new Error(error.message)
-
-    cache = null  // invalidar, para que la proxima lectura traiga lo nuevo
-    return data
 }
 
 function status() {
     return { source: ultimaFuente, cachedAt: cacheAt ? new Date(cacheAt).toISOString() : null }
 }
 
-module.exports = { getLocalities, upsertLocality, status }
+module.exports = { getLocalities, status }

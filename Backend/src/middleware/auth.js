@@ -47,24 +47,4 @@ async function requireAuth(req, res, next) {
     next()
 }
 
-// Endpoints públicos que se enriquecen si hay sesión.
-// El mapa de riesgo lo usa: cualquiera lo ve, pero a quien tiene sesión se le
-// puede además registrar la consulta en su historial.
-async function optionalAuth(req, res, next) {
-    const token = tokenDesde(req)
-
-    if (token) {
-        const user = await supabase.verifyAccessToken(token)
-        if (user) {
-            req.user = user
-            req.accessToken = token
-            req.db = supabase.getUserClient(token)
-        }
-    }
-
-    // Un token inválido no rompe una ruta pública: simplemente se ignora y la
-    // persona queda como visitante anónimo.
-    next()
-}
-
-module.exports = { requireAuth, optionalAuth, tokenDesde }
+module.exports = { requireAuth, tokenDesde }

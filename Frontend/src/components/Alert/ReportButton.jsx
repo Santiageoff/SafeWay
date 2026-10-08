@@ -66,82 +66,38 @@ function ReportButton({ onReported, onNeedsManualLocation, onNeedsAuth, disabled
   }
 
   const label = {
-    idle: haySesion ? 'Reportar robo' : 'Reportar robo · requiere cuenta',
-    locating: 'Ubicando…',
-    sending: 'Enviando…',
-    error: 'No se pudo enviar'
+    idle: haySesion ? 'REPORTAR UN ROBO' : 'REPORTAR · REQUIERE CUENTA',
+    locating: 'UBICANDO…',
+    sending: 'ENVIANDO…',
+    error: 'NO SE PUDO ENVIAR'
   }[state]
 
   const busy = state === 'locating' || state === 'sending'
 
   return (
-    <div style={{
-      position: 'absolute',
-      right: '20px',
-      bottom: '24px',
-      zIndex: 1000,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'flex-end',
-      gap: '8px'
-    }}>
+    <div className="absolute bottom-4 right-4 z-[1000] flex flex-col items-end gap-2 md:bottom-6 md:right-6">
       {error && (
-        <div style={{
-          maxWidth: '260px',
-          padding: '10px 12px',
-          borderRadius: '10px',
-          backgroundColor: '#7F1D1D',
-          border: '1px solid #EF4444',
-          color: '#FEE2E2',
-          fontSize: '12px',
-          lineHeight: 1.4,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.35)'
-        }}>
+        <div className="max-w-[260px] rounded-campo border-3 border-texto bg-aviso px-3 py-2 text-xs leading-snug text-texto shadow-dura-chica">
           {error}
         </div>
       )}
 
       {/* Aviso permanente, no letra pequeña: el botón NO llama a la policía
           y nadie debería quedarse esperando que alguien venga. */}
-      <div style={{
-        maxWidth: '260px',
-        padding: '8px 12px',
-        borderRadius: '10px',
-        backgroundColor: 'rgba(10, 22, 40, 0.92)',
-        border: '1px solid #1E3A5F',
-        color: '#94A3B8',
-        fontSize: '11px',
-        lineHeight: 1.4,
-        textAlign: 'right'
-      }}>
+      <div className="max-w-[260px] rounded-campo border-3 border-texto bg-superficie px-3 py-2 text-right text-[11px] leading-snug text-texto-tenue shadow-dura-chica">
         SafeWay no es línea de emergencia.<br />
-        Si estás en peligro, llama al <strong style={{ color: '#F1F5F9' }}>123</strong>.
+        Si estás en peligro, llama al <strong className="text-texto">123</strong>.
       </div>
 
       <button
         onClick={handleClick}
         disabled={disabled || busy}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '16px 22px',
-          borderRadius: '999px',
-          border: 'none',
-          backgroundColor: state === 'error' ? '#7F1D1D' : '#DC2626',
-          color: 'white',
-          fontSize: '15px',
-          fontWeight: '700',
-          cursor: busy || disabled ? 'default' : 'pointer',
-          opacity: disabled ? 0.5 : 1,
-          boxShadow: '0 10px 30px rgba(220, 38, 38, 0.45)',
-          transition: 'transform 0.15s, background 0.2s'
-        }}
-        onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)' }}
-        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+        className={
+          'flex min-h-[44px] items-center gap-2 rounded-pastilla border-3 border-texto px-5 py-4 font-display text-sm text-texto shadow-dura transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-dura-chica disabled:opacity-50 ' +
+          (state === 'error' ? 'bg-aviso' : 'bg-riesgo-alto')
+        }
       >
-        <span style={{ fontSize: '20px' }}>{busy ? '⏳' : '🚨'}</span>
+        <span className="text-lg">{busy ? '⏳' : '🚨'}</span>
         {label}
       </button>
     </div>
