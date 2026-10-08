@@ -233,3 +233,54 @@ reorganización de `route.route.js` (#2, #5, #6).
 { "status": "…", "storage": { "backend": "supabase", "adminKey": false, "supabaseReachable": true } }
 ```
 Si Supabase no responde: `supabaseReachable: false` y `supabaseError` con el motivo.
+
+---
+
+## Perfil proactivo 🔒 (issue #8 · IV.A y Anexo A 4.4)
+
+Todos exigen sesión. Nada se guarda ni se deduce sin **consentimiento** (Ley 1581): son tres
+permisos separados y todos empiezan en `false`.
+
+| Propósito | Qué permite |
+|---|---|
+| `route_history` | Guardar las consultas de ruta (solo localidades y hora, nunca coordenadas) |
+| `habitual_routes` | Deducir rutas habituales del historial |
+| `alerts` | Crear alertas cuando sube el riesgo de una ruta habitual |
+
+### `GET /api/profile/consents` · `POST /api/profile/consents`
+`GET` devuelve el estado vigente: `{ "route_history": true, "habitual_routes": true, "alerts": false }`.
+`POST` otorga o revoca uno: `{ "purpose": "alerts", "granted": true }` (opcional `policyVersion`).
+Nunca borra: añade una fila, para que quede prueba de cada decisión. Responde el estado nuevo.
+
+### `GET /api/profile/preferences` · `PUT /api/profile/preferences`
+```json
+{ "alertsEnabled": true, "minRiskLevel": "high", "quietHoursStart": 22, "quietHoursEnd": 6 }
+```
+Todos los campos son opcionales en el `PUT`. `minRiskLevel`: `medium` o `high`. Horas de 0 a 23 en
+hora de Bogotá, o `null`. Las alertas nacen **apagadas** (`alertsEnabled: false`).
+
+### `POST /api/profile/refresh`
+Corre el motor para la persona: detecta sus rutas habituales (la misma ruta origen-destino-medio en
+**3 días distintos**, en la misma franja horaria) y crea una alerta por cada ruta cuyo nivel **subió**
+hasta el mínimo que pidió. La interfaz lo llama al abrir la app.
+```json
+{ "rutasHabituales": 1, "alertasNuevas": [ { "id": 7, "previous_level": "medium", "new_level": "high", "zones": ["Kennedy"] } ],
+  "consentimientos": { "route_history": true, "habitual_routes": true, "alerts": true } }
+```
+Sin consentimiento de `habitual_routes` no hace nada. La primera evaluación de una ruta fija su
+nivel base y no alerta. `503` (`motor_no_disponible`) si el backend no tiene la llave secreta.
+
+### `GET /api/profile/alerts?unseen=true` · `PATCH /api/profile/alerts/:id/seen`
+Las últimas 50 alertas, con la ruta habitual a la que pertenecen (`habitual_routes`). `unseen=true`
+trae solo las no vistas. El `PATCH` la marca como vista; `404` si no es suya o no existe.
+
+### `GET /api/profile/habitual-routes`
+Las rutas habituales detectadas: localidades de origen y destino, medio, franja, días de la semana
+(0 = domingo), `confidence` (0 a 1: fracción de sus días activos en que hizo esa ruta) y el último nivel.
+
+### `DELETE /api/profile/history`
+Derecho de supresión: borra el historial y las rutas habituales deducidas de él (sus alertas se
+borran en cascada).
+
+> ⚠️ Pendiente de conectar: `POST /api/route/analyze` todavía no guarda la consulta en el historial.
+> Se conecta cuando se fusionen #2, #5 y #6, que reorganizan ese endpoint.
