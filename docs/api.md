@@ -100,25 +100,26 @@ Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
   "routeSource": "osrm",
   "timeWindow": { "id": "tarde", "label": "tarde (12m-6pm)" },
   "zonesInRoute": [
-    { "id": 8, "name": "Kennedy", "riskLevel": "high", "vehicleRisk": "high", "insecurityPercentage": 80 },
-    { "id": 11, "name": "Suba", "riskLevel": "low", "vehicleRisk": "low", "insecurityPercentage": 25 }
+    { "id": 8, "name": "Kennedy", "riskLevel": "high", "vehicleRisk": "high", "insecurityPercentage": 80, "distanceKm": 0.4 },
+    { "id": 11, "name": "Suba", "riskLevel": "low", "vehicleRisk": "low", "insecurityPercentage": 25, "distanceKm": 1.2 }
   ],
   "safestRoute": { "description": "Ruta con alto riesgo…", "avoidZones": ["Kennedy", "Fontibón"] },
   "recentReports": [],
-  "recommendation": "Ruta de Suba a Kennedy. Nivel de riesgo high. Zona segura. …",
+  "recommendation": "Ruta de Suba a Kennedy en moto: riesgo alto. Pasa cerca de Kennedy, con riesgo alto para este medio. Si puedes, busca una alternativa que las evite o extrema las precauciones.",
   "tips": ["Usa casco y ropa reflectiva", "Evita zonas oscuras de noche", "Prefiere vías principales"]
 }
 ```
-⚠️ `recommendation` concatena la recomendación de la localidad de **origen**, así que una ruta
-`high` puede decir "Zona segura" (como en el ejemplo). Se corrige en el paquete 4.2.
+`recommendation` sale del **nivel de la ruta** y nombra las localidades que lo suben. Antes
+copiaba la recomendación de la localidad de origen, y una ruta `high` podía decir "Zona segura"
+(corregido en el issue #6). Si la ruta se estimó en línea recta, lo dice.
 
 | Campo | Significado |
 |---|---|
-| `overallRisk` | El **peor** nivel, para ese medio, entre las localidades a < 3 km del trayecto |
-| `insecurityPercentage` | Promedio del % de inseguridad de esas localidades (5 si no hay ninguna) |
+| `overallRisk` | El **peor** nivel, para ese medio, entre las localidades del trayecto (`zonesInRoute`) |
+| `insecurityPercentage` | Promedio simple del % de inseguridad de las localidades del trayecto (el mismo dato de `GET /api/risk/zones`). 5 solo si no hubiera ninguna, lo que en la práctica no pasa porque origen y destino siempre cuentan |
 | `routeDistance` / `routeDuration` | km y minutos. Bici y a pie usan su propio perfil de OSRM; moto y público ajustan con un factor la duración del perfil de carro |
 | `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió en 3 s (o no devolvió ruta), línea recta estimada |
-| `zonesInRoute` | Localidades consideradas. **Hoy se miden contra la línea recta origen-destino**, no contra `routeCoordinates` (pendiente, paquete 4.2) |
+| `zonesInRoute` | Localidades del trayecto, de la más cercana a la más lejana: las que tienen su **centro a menos de 3 km de la ruta real** (`routeCoordinates`, la polilínea de OSRM), más las localidades de origen y destino. `distanceKm` es la distancia mínima del centro a la ruta. Una ruta que rodea una localidad no la cuenta; una que la cruza en curva sí |
 
 Errores: `400` falta un campo, `origin` o `destination` no son texto o pasan de 200 caracteres,
 o `vehicleType` inválido · `404` (`direccion_no_encontrada`) no se encontró el origen o el

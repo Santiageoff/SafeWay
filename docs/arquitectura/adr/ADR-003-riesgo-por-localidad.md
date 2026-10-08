@@ -16,7 +16,9 @@ vía existe solo parcialmente y exigiría geometrías y cargas que no caben en 1
 - La unidad de riesgo es la **localidad** (20 en Bogotá), con un nivel general y un nivel por
   medio de transporte (`vehicleRisks`).
 - Cada localidad se representa por su **centroide**; en el mapa, una burbuja de 1,2 km.
-- Una ruta "toca" una localidad si pasa a menos de 3 km de su centroide.
+- Una ruta "toca" una localidad si pasa a menos de 3 km de su centroide. La distancia se mide
+  contra el **trazado real** de la ruta (la polilínea de OSRM), no contra la línea recta entre
+  origen y destino; las localidades de origen y destino cuentan siempre (issue #6, oct-2026).
 
 ## Alternativas descartadas
 - **Por barrio o por tramo**: más preciso, pero sin datos oficiales completos a ese nivel ni
