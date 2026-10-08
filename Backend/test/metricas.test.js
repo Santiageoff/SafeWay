@@ -158,6 +158,6 @@ test('GET /api/metrics/resumen sin llave secreta responde 503, no 500', async (t
     assert.equal((await res.json()).code, 'metricas_no_disponibles')
 })
 
-// Pendiente: se vuelve prueba real cuando el análisis de ruta llame a
-// metrics.registrar (después de #2, #5 y #6, que reorganizan route.route.js).
-test.todo('N llamadas a POST /api/route/analyze -> el resumen refleja N; con Supabase caído el análisis sigue respondiendo')
+// La prueba con llamadas reales a POST /api/route/analyze está en
+// test/geocodificacion.test.js ("CRITERIO #7"), desde que el análisis registra
+// sus métricas (issue #5).
