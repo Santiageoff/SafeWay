@@ -54,15 +54,15 @@ Las 20 localidades con el riesgo del momento.
 `meta.live: false` = no se pudieron leer los reportes ciudadanos y se muestra solo la línea base.
 
 ### `GET /api/risk/zones/:id`
-Una localidad por id (1-20). Acepta `mode` y `at`. `404` si no existe.
+Una localidad por id (1-20). Acepta `mode` y `at`. `400` si el id no es un entero · `404` si no existe.
 
 ### `GET /api/risk/zone/:localidad`
 Una localidad por nombre (exacto, o si no, que contenga el texto). Acepta `vehicle` o `mode`, y
 `at`. `404` si no existe. La usa el frontend para el detalle.
 
 ### `GET /api/risk/search?q=<texto>`
-Hasta 5 localidades cuyo nombre contiene `q`. `400` si `q` está vacío. (Hace lo mismo que
-`/zones?q=`; candidato a unificarse.)
+Hasta 5 localidades cuyo nombre contiene `q`. `400` si `q` está vacío o viene repetido. (Hace
+lo mismo que `/zones?q=`; candidato a unificarse.)
 
 ---
 
@@ -108,19 +108,19 @@ Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
 | `overallRisk` | El **peor** nivel, para ese medio, entre las localidades a < 3 km del trayecto |
 | `insecurityPercentage` | Promedio del % de inseguridad de esas localidades (5 si no hay ninguna) |
 | `routeDistance` / `routeDuration` | km y minutos. La duración de moto, bici, a pie y público es un factor sobre la de carro |
-| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió, línea recta estimada |
+| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió en 4 s (o no devolvió ruta), línea recta estimada |
 | `zonesInRoute` | Localidades consideradas. **Hoy se miden contra la línea recta origen-destino**, no contra `routeCoordinates` (pendiente, paquete 4.2) |
 
-Errores: `400` falta un campo o `vehicleType` inválido · `404` no se encontró la localidad de
-origen o de destino. No exige sesión. ⚠️ Hoy un `origin` que no es texto (p. ej. `123`) responde
-`500` en vez de `400` (paquete 3.2).
+Errores: `400` falta un campo, `origin` o `destination` no son texto, o `vehicleType` inválido ·
+`404` no se encontró la localidad de origen o de destino. No exige sesión.
 
-### `POST /api/risk/analyze` — ⚠️ obsoleto
-Segundo algoritmo (promedio, umbral 2 km, recibe coordenadas). **No lo usa el frontend** y da
-resultados distintos a `/api/route/analyze`. Se elimina o se unifica en el paquete 3.2.
+El servidor de rutas se configura con `OSRM_URL` (por defecto el OSRM público) y
+`OSRM_TIMEOUT_MS` (4000). La lógica vive en `services/routeAnalysisService.js` (funciones puras),
+`services/routingService.js` (OSRM) y `services/zoneService.js` (zonas).
 
-### `GET /api/route/plan` — ⚠️ sin implementar
-Responde `"en desarrollo"`. Se elimina en el paquete 3.2.
+> `POST /api/risk/analyze` (un segundo algoritmo que daba resultados distintos) y
+> `GET /api/route/plan` (respondía "en desarrollo") **se eliminaron** en el issue #2. Hoy
+> responden `404`.
 
 ---
 

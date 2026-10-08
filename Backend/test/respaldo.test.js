@@ -132,6 +132,6 @@ test('cuando Supabase vuelve, se retoma sin esperar los 5 min de caché', async 
     assert.equal(despues.total, 20)
 })
 
-// Pendientes: se vuelven pruebas reales cuando se cierre su orden de trabajo.
-test.todo('POST /api/route/analyze con origin no textual responde 400, no 500')
-test.todo('POST /api/route/analyze sin sesión responde 200 — necesita OSRM configurable por variable de entorno')
+// Los dos pendientes que había aquí (origin no textual -> 400, y el análisis
+// sin sesión -> 200 con OSRM configurable) ahora son pruebas reales en
+// test/endpoints.test.js (issue #2).
