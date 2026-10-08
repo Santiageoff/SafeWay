@@ -10,7 +10,8 @@
     "check:setup": "node scripts/check-setup.js",
     "verify:rls": "node scripts/verify-rls.js",
     "verify:api": "node scripts/verify-api.js",
-    "audit:rls": "node scripts/audit-rls.js"
+    "audit:rls": "node scripts/audit-rls.js",
+    "medir:tiempos": "node scripts/medir-tiempos.js"
   },
   "keywords": [],
   "author": "",
@@ -23,8 +24,7 @@
     "@supabase/supabase-js": "^2.99.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "node-fetch": "^2.7.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

@@ -8,6 +8,7 @@ const assert = require('node:assert/strict')
 const http = require('node:http')
 
 const { levantarApi } = require('../test-utils/api')
+const { nominatimFalso } = require('../test-utils/falsos')
 const { localities } = require('../src/data/localities')
 
 const SUPABASE_CAIDO = { SUPABASE_URL: 'http://127.0.0.1:9', SUPABASE_KEY: 'llave-de-prueba', SUPABASE_ANON_KEY: '' }
@@ -37,15 +38,18 @@ async function osrmFalso() {
     }
 }
 
-let api, osrm
+let api, osrm, nominatim
 
 test.before(async () => {
     osrm = await osrmFalso()
-    api = await levantarApi({ ...SUPABASE_CAIDO, OSRM_URL: osrm.url })
+    // Nominatim falso sin direcciones: todo lo que no sea una localidad da 404.
+    nominatim = await nominatimFalso()
+    api = await levantarApi({ ...SUPABASE_CAIDO, OSRM_URL: osrm.url, NOMINATIM_URL: nominatim.url, NOMINATIM_INTERVAL_MS: '0' })
 })
 test.after(async () => {
     await api.cerrar()
     await osrm.cerrar()
+    await nominatim.cerrar()
 })
 
 // ---------- GET /api/risk/zones/:id ----------
@@ -154,7 +158,7 @@ test('los endpoints obsoletos ya no existen', async () => {
 })
 
 test('POST /api/route/analyze con OSRM caído usa la línea recta y lo dice', async (t) => {
-    const sinOsrm = await levantarApi({ ...SUPABASE_CAIDO, OSRM_URL: 'http://127.0.0.1:9' })
+    const sinOsrm = await levantarApi({ ...SUPABASE_CAIDO, OSRM_URL: 'http://127.0.0.1:9', NOMINATIM_URL: nominatim.url })
     t.after(sinOsrm.cerrar)
     const r = await (await sinOsrm.post('/api/route/analyze', { origin: 'Suba', destination: 'Kennedy', vehicleType: 'moto' })).json()
     assert.equal(r.routeSource, 'straight-line')

@@ -71,10 +71,19 @@ lo mismo que `/zones?q=`; candidato a unificarse.)
 ### `POST /api/route/analyze` — el que usa la interfaz
 
 ```json
-{ "origin": "Suba", "destination": "Kennedy", "vehicleType": "moto" }
+{ "origin": "Calle 72 # 7-30", "destination": "Kennedy", "vehicleType": "moto" }
 ```
-Hoy `origin` y `destination` son **nombres de localidad** (coincidencia parcial). La
-geocodificación de direcciones con Nominatim está pendiente (paquete 4.1).
+`origin` y `destination` son texto (máx. 200 caracteres) y aceptan dos cosas:
+- **El nombre de una localidad** ("Suba", o parte: "santa" → Santa Fe). Se usa su centro, sin salir
+  a internet. Es como funcionaba antes.
+- **Una dirección o lugar** ("Calle 72 # 7-30", "Parque de la 93"). Se geocodifica en el
+  backend con Nominatim (OpenStreetMap), solo dentro de Bogotá, con caché de 24 h y como máximo
+  1 petición por segundo para toda la app (política de uso de Nominatim). El navegador nunca
+  llama a Nominatim.
+
+Además de los campos de abajo, `origin` y `destination` traen `locality` (la localidad del
+punto) y `source` (`localidad` o `nominatim`), y la respuesta trae `routeProfile`
+(`car`, `bike`, `foot`, o `null` si fue línea recta).
 
 Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
 ```json
@@ -107,15 +116,22 @@ Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
 |---|---|
 | `overallRisk` | El **peor** nivel, para ese medio, entre las localidades a < 3 km del trayecto |
 | `insecurityPercentage` | Promedio del % de inseguridad de esas localidades (5 si no hay ninguna) |
-| `routeDistance` / `routeDuration` | km y minutos. La duración de moto, bici, a pie y público es un factor sobre la de carro |
-| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió en 4 s (o no devolvió ruta), línea recta estimada |
+| `routeDistance` / `routeDuration` | km y minutos. Bici y a pie usan su propio perfil de OSRM; moto y público ajustan con un factor la duración del perfil de carro |
+| `routeSource` | `osrm` = ruta real · `straight-line` = OSRM no respondió en 3 s (o no devolvió ruta), línea recta estimada |
 | `zonesInRoute` | Localidades consideradas. **Hoy se miden contra la línea recta origen-destino**, no contra `routeCoordinates` (pendiente, paquete 4.2) |
 
-Errores: `400` falta un campo, `origin` o `destination` no son texto, o `vehicleType` inválido ·
-`404` no se encontró la localidad de origen o de destino. No exige sesión.
+Errores: `400` falta un campo, `origin` o `destination` no son texto o pasan de 200 caracteres,
+o `vehicleType` inválido · `404` (`direccion_no_encontrada`) no se encontró el origen o el
+destino en Bogotá (el mensaje dice cuál) · `503` (`geocodificacion_no_disponible`) Nominatim no
+respondió en 2,5 s: con el nombre de una localidad sigue funcionando. No exige sesión.
 
-El servidor de rutas se configura con `OSRM_URL` (por defecto el OSRM público) y
-`OSRM_TIMEOUT_MS` (4000). La lógica vive en `services/routeAnalysisService.js` (funciones puras),
+Cada análisis queda registrado en los indicadores (`GET /api/metrics/resumen`), después de
+responder: medir nunca demora ni tumba la respuesta.
+
+Variables (todas opcionales): `OSRM_URL` (por defecto `https://routing.openstreetmap.de/routed-{perfil}`;
+`{perfil}` se reemplaza por car/bike/foot), `OSRM_TIMEOUT_MS` (3000), `NOMINATIM_URL`,
+`NOMINATIM_USER_AGENT` y `NOMINATIM_TIMEOUT_MS` (2500). Para medir el tiempo de respuesta con 20
+consultas reales: `npm run medir:tiempos` con la API corriendo. La lógica vive en `services/routeAnalysisService.js` (funciones puras),
 `services/routingService.js` (OSRM) y `services/zoneService.js` (zonas).
 
 > `POST /api/risk/analyze` (un segundo algoritmo que daba resultados distintos) y
@@ -221,8 +237,7 @@ Con 0 consultas, los percentiles y porcentajes vienen en `null`. Errores: `400` 
 
 Los datos salen de la tabla `route_metrics`, sin datos personales: guarda la **localidad** de
 origen y destino, nunca coordenadas, IP ni `user_id`. Solo el backend la lee y escribe (RLS sin
-políticas). ⚠️ Hoy el análisis de ruta todavía no registra métricas: se conecta al terminar la
-reorganización de `route.route.js` (#2, #5, #6).
+políticas). Cada `POST /api/route/analyze` que responde 200 deja una fila (desde el issue #5).
 
 ---
 
