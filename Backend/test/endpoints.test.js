@@ -136,6 +136,16 @@ test('POST /api/route/analyze: cualquier par de las 20 localidades responde 200'
     }
 })
 
+test('Suba -> Kennedy: una ruta de riesgo alto ya no dice "Zona segura" (issue #6)', async () => {
+    for (const vehicleType of ['carro', 'moto', 'bici', 'peatón', 'publico']) {
+        const r = await (await api.post('/api/route/analyze', { origin: 'Suba', destination: 'Kennedy', vehicleType })).json()
+        const nivel = { low: 'bajo', medium: 'medio', high: 'alto' }[r.overallRisk]
+        assert.match(r.recommendation, new RegExp(`riesgo ${nivel}`), vehicleType)
+        if (r.overallRisk !== 'low') assert.ok(!r.recommendation.includes('Zona segura'), `${vehicleType}: ${r.recommendation}`)
+        assert.ok(r.zonesInRoute.every(z => typeof z.distanceKm === 'number'))
+    }
+})
+
 test('POST /api/route/analyze: errores de entrada son 400/404, nunca 500', async () => {
     const casos = [
         [{}, 400],
