@@ -236,8 +236,24 @@ async function actualizarPerfil(userId, zonas, ahora = new Date()) {
     return { rutasHabituales: (rutas.data || []).length, alertasNuevas, consentimientos: vigentes }
 }
 
+// Después de cada análisis de una persona con sesión: guarda la consulta en su
+// historial (la base la rechaza si no hay consentimiento) y, si se guardó,
+// corre el motor para detectar rutas habituales y crear alertas.
+// Nunca lanza: el análisis ya se respondió y esto no puede romper nada.
+async function registrarAnalisis(sesion, datos, zonas) {
+    if (!sesion || !sesion.user || !sesion.db) return { guardado: false, motivo: 'sin_sesion' }
+    const resultado = await registrarConsulta(sesion.db, sesion.user.id, datos)
+    if (!resultado.guardado) return resultado
+    try {
+        await actualizarPerfil(sesion.user.id, zonas)
+    } catch (err) {
+        console.error('[profile] no se pudo actualizar el perfil después del análisis:', err.message)
+    }
+    return resultado
+}
+
 module.exports = {
-    PROPOSITOS, ProfileError,
+    PROPOSITOS, ProfileError, registrarAnalisis,
     misConsentimientos, guardarConsentimiento, misPreferencias, guardarPreferencias,
     registrarConsulta, borrarHistorial, misRutasHabituales, misAlertas, marcarAlertaVista,
     actualizarPerfil

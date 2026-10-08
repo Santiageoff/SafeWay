@@ -47,4 +47,21 @@ async function requireAuth(req, res, next) {
     next()
 }
 
-module.exports = { requireAuth, tokenDesde }
+// Sesión OPCIONAL para endpoints públicos que se enriquecen si hay sesión
+// (el análisis de ruta guarda el historial de quien inició sesión).
+// No es un middleware: devuelve una promesa que el endpoint puede esperar
+// DESPUÉS de responder, así verificar el token no hace más lento el análisis.
+// Un token inválido o vencido da null: la persona sigue como visitante.
+async function sesionOpcional(req) {
+    const token = tokenDesde(req)
+    if (!token) return null
+    try {
+        const user = await supabase.verifyAccessToken(token)
+        if (!user) return null
+        return { user, db: supabase.getUserClient(token) }
+    } catch {
+        return null
+    }
+}
+
+module.exports = { requireAuth, sesionOpcional, tokenDesde }

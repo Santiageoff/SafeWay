@@ -55,14 +55,32 @@ async function osrmFalso({ colgado = false } = {}) {
 }
 
 // PostgREST en memoria: guarda los INSERT de route_metrics y los devuelve en
-// los GET. Cualquier otra tabla responde 404 (la API usa su respaldo).
-async function supabaseFalso() {
+// los GET. Con `usuarios` ({ token: { id, email } }) también simula la sesión
+// (GET /auth/v1/user) y guarda en `historial` los INSERT a route_queries, con
+// el token con que llegaron. Cualquier otra tabla responde 404 (la API usa su
+// respaldo).
+async function supabaseFalso({ usuarios = {} } = {}) {
     const filas = []
+    const historial = []
     const s = await escuchar((req, res) => {
         let cuerpo = ''
         req.on('data', d => { cuerpo += d })
         req.on('end', () => {
             res.setHeader('Content-Type', 'application/json')
+            const token = (req.headers.authorization || '').replace(/^Bearer /, '')
+
+            if (req.url.startsWith('/auth/v1/user')) {
+                const usuario = usuarios[token]
+                res.statusCode = usuario ? 200 : 401
+                return res.end(JSON.stringify(usuario
+                    ? { aud: 'authenticated', role: 'authenticated', ...usuario }
+                    : { code: 401, msg: 'invalid JWT' }))
+            }
+            if (req.url.startsWith('/rest/v1/route_queries') && req.method === 'POST') {
+                historial.push(...[].concat(JSON.parse(cuerpo)).map(f => ({ ...f, _token: token })))
+                res.statusCode = 201
+                return res.end()
+            }
             if (!req.url.startsWith('/rest/v1/route_metrics')) {
                 res.statusCode = 404
                 return res.end(JSON.stringify({ message: 'no existe en el falso' }))
@@ -75,7 +93,7 @@ async function supabaseFalso() {
             res.end(JSON.stringify(filas))
         })
     })
-    return { ...s, filas }
+    return { ...s, filas, historial }
 }
 
 module.exports = { nominatimFalso, osrmFalso, supabaseFalso }
