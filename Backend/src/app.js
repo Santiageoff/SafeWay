@@ -51,7 +51,7 @@ app.get('/health', async (req, res) => {
     const connection = await supabase.checkConnection()
 
     res.json({
-        status: 'SafeWay AI backend running',
+        status: 'SafeWay backend running',
         storage: { ...reportStore.status(), supabaseReachable: connection.ok },
         ...(connection.ok ? {} : { supabaseError: connection.reason })
     })

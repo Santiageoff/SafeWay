@@ -175,7 +175,7 @@ probar().then(() => {
         console.log('El entorno esta completo y RLS esta protegiendo la base.')
     } else {
         console.log('Faltan ' + faltantes + ' cosa(s). Mira las líneas [FALTA] de arriba.')
-        console.log('Detalle completo en SETUP-AUTH-RLS.md')
+        console.log('Detalle completo en docs/setup-supabase.md')
     }
     console.log('')
     // exitCode en vez de process.exit(): en Windows, salir de golpe con
