@@ -157,6 +157,44 @@ Deshace un reporte propio dentro de los 30 s siguientes.
 
 ---
 
+## Indicadores (issue #7 · III.F del documento)
+
+### `GET /api/metrics/resumen?dias=30`
+Los tres indicadores del documento, **solo agregados** (nunca filas individuales). `dias` es
+opcional, entero de 1 a 365, 30 por defecto.
+```json
+{
+  "success": true,
+  "data": {
+    "desde": "2026-08-24T23:40:00.000Z",
+    "dias": 30,
+    "totalConsultas": 128,
+    "duracionMs": { "p50": 640, "p90": 1850 },
+    "porcentajeRespaldo": 3.1,
+    "porcentajeEvitaAlto": 42.2,
+    "porcentajeRutaReal": 96.9
+  }
+}
+```
+
+| Campo | Significado |
+|---|---|
+| `totalConsultas` | Análisis de ruta registrados en el periodo |
+| `duracionMs` | Percentiles 50 y 90 del tiempo de respuesta del análisis, en ms |
+| `porcentajeRespaldo` | % de consultas que cayeron al dataset de respaldo en vez de Supabase |
+| `porcentajeEvitaAlto` | % de rutas que no pasan por ninguna zona de riesgo alto para su medio |
+| `porcentajeRutaReal` | % de rutas calculadas con OSRM (el resto, línea recta) |
+
+Con 0 consultas, los percentiles y porcentajes vienen en `null`. Errores: `400` `dias` inválido ·
+`503` (`metricas_no_disponibles`) el backend no tiene `SUPABASE_SECRET_KEY` o Supabase no respondió.
+
+Los datos salen de la tabla `route_metrics`, sin datos personales: guarda la **localidad** de
+origen y destino, nunca coordenadas, IP ni `user_id`. Solo el backend la lee y escribe (RLS sin
+políticas). ⚠️ Hoy el análisis de ruta todavía no registra métricas: se conecta al terminar la
+reorganización de `route.route.js` (#2, #5, #6).
+
+---
+
 ## Salud
 
 ### `GET /health`
