@@ -6,6 +6,7 @@ const riskRoutes = require('./routes/risk.routes')
 const routeRoutes = require('./routes/route.route')
 const reportRoutes = require('./routes/report.routes')
 const metricsRoutes = require('./routes/metrics.routes')
+const sourcesRoutes = require('./routes/sources.routes')
 const reportStore = require('./services/reportStore')
 const supabase = require('./services/supabaseService')
 
@@ -45,6 +46,7 @@ app.use('/api/risk', riskRoutes)
 app.use('/api/route', routeRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/metrics', metricsRoutes)
+app.use('/api/sources', sourcesRoutes)
 
 app.get('/health', async (req, res) => {
     // Sondea Supabase de verdad en vez de asumir que funciona porque hay

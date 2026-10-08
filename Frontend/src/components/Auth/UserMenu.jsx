@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useAuth } from '../../context/useAuth'
-import AuthModal from './AuthModal'
+
+// Solo se carga cuando alguien de verdad va a iniciar sesión: no bloquea el
+// primer pintado del mapa (issue #12: LCP < 3s).
+const AuthModal = lazy(() => import('./AuthModal'))
 
 // Barra de sesion del panel lateral. Con sesion muestra quien eres y deja
 // salir; sin ella, invita a entrar sin bloquear nada: el mapa se ve igual.
@@ -11,7 +14,7 @@ function UserMenu() {
 
   if (!disponible) {
     return (
-      <div style={{ ...caja, borderColor: '#F59E0B', color: '#FCD34D' }}>
+      <div className="rounded-campo border-3 border-texto bg-riesgo-medio px-3 py-2.5 text-[11px] leading-relaxed text-texto">
         ⚠ Falta configurar Supabase en Frontend/.env: no se puede iniciar sesión.
       </div>
     )
@@ -20,13 +23,21 @@ function UserMenu() {
   if (!haySesion) {
     return (
       <>
-        <button onClick={() => setAbierto(true)} style={botonEntrar}>
+        <button
+          onClick={() => setAbierto(true)}
+          className="min-h-[44px] w-full rounded-boton border-3 border-texto bg-acento py-2.5 text-sm font-semibold text-white shadow-dura-chica"
+        >
           Iniciar sesión
         </button>
-        <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#64748B', lineHeight: 1.4 }}>
+        {/* En la barra compacta de celular no cabe: solo el botón. */}
+        <p className="mt-1.5 hidden text-[10px] leading-relaxed text-texto-tenue md:block">
           El mapa se ve sin cuenta. La sesión hace falta para reportar.
         </p>
-        {abierto && <AuthModal onClose={() => setAbierto(false)} />}
+        {abierto && (
+          <Suspense fallback={null}>
+            <AuthModal onClose={() => setAbierto(false)} />
+          </Suspense>
+        )}
       </>
     )
   }
@@ -34,36 +45,21 @@ function UserMenu() {
   const nombre = user.user_metadata?.display_name || user.email?.split('@')[0]
 
   return (
-    <div style={caja}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '12px', color: '#F1F5F9', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {nombre}
-          </div>
-          <div style={{ fontSize: '10px', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {user.email}
-          </div>
+    <div className="rounded-campo border-3 border-texto bg-superficie px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-xs font-semibold text-texto">{nombre}</div>
+          <div className="truncate text-[10px] text-texto-tenue">{user.email}</div>
         </div>
-        <button onClick={cerrarSesion} style={botonSalir}>Salir</button>
+        <button
+          onClick={cerrarSesion}
+          className="shrink-0 rounded-campo border-3 border-texto bg-fondo px-2.5 py-1.5 text-[11px] font-semibold text-texto"
+        >
+          Salir
+        </button>
       </div>
     </div>
   )
-}
-
-const caja = {
-  padding: '10px 12px', borderRadius: '10px',
-  backgroundColor: '#0F2744', border: '1px solid #1E3A5F',
-  fontSize: '11px', lineHeight: 1.5
-}
-const botonEntrar = {
-  width: '100%', padding: '10px', borderRadius: '10px',
-  border: '1px solid #22D3EE', backgroundColor: 'transparent',
-  color: '#22D3EE', fontSize: '13px', fontWeight: 600, cursor: 'pointer'
-}
-const botonSalir = {
-  flexShrink: 0, padding: '6px 10px', borderRadius: '8px',
-  border: '1px solid #1E3A5F', backgroundColor: 'transparent',
-  color: '#94A3B8', fontSize: '11px', cursor: 'pointer'
 }
 
 export default UserMenu

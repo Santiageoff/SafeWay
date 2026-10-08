@@ -11,7 +11,7 @@ const vehicles = [
 
 function VehicleSelector({ selected, onSelect }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+    <div className="grid grid-cols-5 gap-1.5">
       {vehicles.map((vehicle) => {
         const isSelected = selected === vehicle.id
         return (
@@ -19,23 +19,13 @@ function VehicleSelector({ selected, onSelect }) {
             key={vehicle.id}
             onClick={() => onSelect(vehicle.id)}
             title={vehicle.id === 'publico' ? 'TransMilenio, SITP y buses' : vehicle.label}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '10px 4px',
-              borderRadius: '12px',
-              border: isSelected ? '1px solid #22D3EE' : '1px solid #1E3A5F',
-              backgroundColor: isSelected ? '#065A82' : '#0F2744',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
+            className={
+              'flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-campo border-3 border-texto px-1 py-2 transition-colors ' +
+              (isSelected ? 'bg-acento text-white shadow-dura-chica' : 'bg-superficie text-texto-tenue')
+            }
           >
-            <span style={{ fontSize: '20px', marginBottom: '4px' }}>{vehicle.icon}</span>
-            <span style={{ fontSize: '10px', fontWeight: '500', color: isSelected ? 'white' : '#94A3B8' }}>
-              {vehicle.label}
-            </span>
+            <span className="text-lg leading-none">{vehicle.icon}</span>
+            <span className="text-[10px] font-semibold">{vehicle.label}</span>
           </button>
         )
       })}
