@@ -91,6 +91,7 @@ async function listPublic(sinceIso) {
         .from(VISTA_PUBLICA).select('*')
         .gte('occurred_at', sinceIso)
         .order('occurred_at', { ascending: false })
+        .abortSignal(supabase.limiteDeEspera())
     if (error) lanzar(error, 'no se pudo leer la capa de reportes')
     return data || []
 }
