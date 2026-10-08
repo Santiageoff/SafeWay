@@ -124,7 +124,8 @@ copiaba la recomendación de la localidad de origen, y una ruta `high` podía de
 Errores: `400` falta un campo, `origin` o `destination` no son texto o pasan de 200 caracteres,
 o `vehicleType` inválido · `404` (`direccion_no_encontrada`) no se encontró el origen o el
 destino en Bogotá (el mensaje dice cuál) · `503` (`geocodificacion_no_disponible`) Nominatim no
-respondió en 2,5 s: con el nombre de una localidad sigue funcionando. No exige sesión.
+respondió en 2,5 s: con el nombre de una localidad sigue funcionando. No exige sesión; si la trae,
+la consulta se guarda en su historial (ver *Perfil proactivo*).
 
 Cada análisis queda registrado en los indicadores (`GET /api/metrics/resumen`), después de
 responder: medir nunca demora ni tumba la respuesta.
@@ -298,5 +299,9 @@ Las rutas habituales detectadas: localidades de origen y destino, medio, franja,
 Derecho de supresión: borra el historial y las rutas habituales deducidas de él (sus alertas se
 borran en cascada).
 
-> ⚠️ Pendiente de conectar: `POST /api/route/analyze` todavía no guarda la consulta en el historial.
-> Se conecta cuando se fusionen #2, #5 y #6, que reorganizan ese endpoint.
+**De dónde sale el historial:** `POST /api/route/analyze` acepta (opcional) el mismo
+`Authorization: Bearer <token>`. Si la sesión es válida, **después de responder** guarda la consulta
+en `route_queries` (localidad de origen y destino, medio, nivel y hora; nunca coordenadas ni la
+dirección escrita) y corre el motor. Sin consentimiento `route_history` la base rechaza el guardado
+(RLS) y no pasa nada más. La sesión se verifica en paralelo con el análisis, así que no lo hace más
+lento. Un token inválido no da error: la persona se trata como visitante.

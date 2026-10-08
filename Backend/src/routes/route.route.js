@@ -11,6 +11,8 @@ const zoneService = require('../services/zoneService')
 const geocoding = require('../services/geocodingService')
 const routingService = require('../services/routingService')
 const metrics = require('../services/metricsService')
+const profile = require('../services/proactiveService')
+const { sesionOpcional } = require('../middleware/auth')
 const { analizarRuta, VEHICLE_TYPES } = require('../services/routeAnalysisService')
 
 const esTexto = (v) => typeof v === 'string' && v.trim() !== ''
@@ -31,6 +33,9 @@ function comoZona(punto) {
 // nombre de una localidad ("Suba").
 router.post('/analyze', async (req, res, next) => {
     const fin = metrics.cronometro()
+    // Si trae sesión, se verifica EN PARALELO con el análisis y se usa solo
+    // después de responder: no suma tiempo a la consulta.
+    const sesion = sesionOpcional(req)
     const { origin, destination, vehicleType } = req.body || {}
 
     if (!esTexto(origin) || !esTexto(destination) || !vehicleType) {
@@ -82,6 +87,15 @@ router.post('/analyze', async (req, res, next) => {
             overallRisk: resultado.overallRisk,
             evitaAlto: metrics.evitaAlto(resultado.zonesInRoute, vehicleType)
         })
+
+        // Historial y motor proactivo (issue #8), solo con sesión. Guarda la
+        // LOCALIDAD de origen y destino, nunca las coordenadas ni la dirección.
+        sesion.then(s => profile.registrarAnalisis(s, {
+            originLocalityId: desde.locality?.id,
+            destinationLocalityId: hasta.locality?.id,
+            vehicleType,
+            riskLevel: resultado.overallRisk
+        }, zones)).catch(err => console.error('[route] historial:', err.message))
     } catch (err) {
         if (err instanceof geocoding.GeocodingError) {
             const mensaje = err.statusCode === 404

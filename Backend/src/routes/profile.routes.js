@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const { requireAuth } = require('../middleware/auth')
 const profile = require('../services/proactiveService')
-const localityStore = require('../services/localityStore')
+const zoneService = require('../services/zoneService')
 
 // Perfil proactivo (issue #8). Todo exige sesión: son datos de la persona.
 // La interfaz (consentimiento, alertas, borrar historial) la hace Juan Camilo
@@ -36,11 +36,10 @@ router.get('/alerts', manejar(req => profile.misAlertas(req.db, { soloNoVistas: 
 router.patch('/alerts/:id/seen', manejar(req => profile.marcarAlertaVista(req.db, Number(req.params.id))))
 
 // Corre el motor para esta persona: la interfaz lo llama al abrir la app.
-// Hoy compara contra el nivel OFICIAL de cada localidad; cuando el issue #2
-// se fusione, usará las zonas con reportes ciudadanos (zoneService).
+// Compara contra el riesgo del momento (dato oficial + reportes ciudadanos).
 router.post('/refresh', manejar(async req => {
-    const { localities } = await localityStore.getLocalities()
-    return profile.actualizarPerfil(req.user.id, localities)
+    const { zones } = await zoneService.loadZones()
+    return profile.actualizarPerfil(req.user.id, zones)
 }))
 
 // Derecho de supresión.

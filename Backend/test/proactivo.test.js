@@ -153,6 +153,6 @@ test('/api/profile/* exige sesión', async (t) => {
     assert.equal((await api.post('/api/profile/refresh', {})).status, 401)
 })
 
-// Pendiente: prueba contra Supabase real (como scripts/verify-rls.js) de que
-// sin consentimiento la base rechaza el historial y el motor no crea nada.
-test.todo('contra Supabase real: sin consentimiento de historial, route_queries rechaza el INSERT')
+// Contra el Supabase REAL (consentimiento en route_queries y RLS de
+// risk_alerts) lo comprueba `npm run verify:rls`, secciones 5 y 6b: necesita
+// la llave secreta, así que no corre en el CI.

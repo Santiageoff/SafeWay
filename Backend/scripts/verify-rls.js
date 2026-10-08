@@ -144,7 +144,7 @@ async function probarAnonimo() {
     check('la vista SI trae lo que el mapa necesita',
         'lat' in fila && 'lng' in fila && 'locality' in fila)
 
-    for (const tabla of ['profiles', 'data_consents', 'route_queries', 'habitual_routes', 'alert_preferences']) {
+    for (const tabla of ['profiles', 'data_consents', 'route_queries', 'habitual_routes', 'alert_preferences', 'risk_alerts']) {
         check('NO lee ' + tabla, fueBloqueado(await anon.from(tabla).select('*').limit(1)))
     }
 }
@@ -270,6 +270,30 @@ async function probarAlertas(A, B) {
 
     check('A puede desactivar una ruta que no le representa',
         !fueBloqueado(await A.db.from('habitual_routes').update({ active: false }).eq('user_id', A.id).select()))
+
+    // risk_alerts (issue #8): las crea el motor; el usuario solo las ve y las
+    // marca como vistas.
+    console.log('\n6b. risk_alerts - alertas proactivas')
+    check('A NO puede inventarse una alerta',
+        fueBloqueado(await A.db.from('risk_alerts').insert({
+            user_id: A.id, habitual_route_id: detectada.data?.id, previous_level: 'low', new_level: 'high'
+        }).select()))
+
+    const alerta = await admin.from('risk_alerts').insert({
+        user_id: A.id, habitual_route_id: detectada.data?.id, previous_level: 'medium', new_level: 'high', zones: ['Kennedy']
+    }).select().single()
+    check('el motor (service_role) SI crea la alerta', !alerta.error, alerta.error?.message)
+
+    check('A ve su alerta',
+        !fueBloqueado(await A.db.from('risk_alerts').select('*').eq('id', alerta.data?.id)))
+    check('B NO ve la alerta de A',
+        fueBloqueado(await B.db.from('risk_alerts').select('*').eq('id', alerta.data?.id)))
+    check('A marca su alerta como vista',
+        !fueBloqueado(await A.db.from('risk_alerts').update({ seen_at: new Date().toISOString() }).eq('id', alerta.data?.id).select()))
+    check('A NO puede cambiar el nivel de la alerta (solo seen_at)',
+        fueBloqueado(await A.db.from('risk_alerts').update({ new_level: 'low' }).eq('id', alerta.data?.id).select()))
+    check('B NO marca como vista la alerta de A',
+        fueBloqueado(await B.db.from('risk_alerts').update({ seen_at: new Date().toISOString() }).eq('id', alerta.data?.id).select()))
 }
 
 async function probarBorradoDeCuenta(A) {
