@@ -11,6 +11,16 @@ decisión concreta: *¿por dónde voy?*
 > SafeWay es una herramienta de apoyo informativo. **No es un canal de emergencia ni reemplaza
 > la Línea 123.**
 
+## Probarla en vivo
+
+<!-- issue #13: reemplazar con la URL real de Vercel una vez publicada -->
+🔗 **[safeway.vercel.app](https://safeway.vercel.app)** *(pendiente de publicar)*
+
+El backend (Render, plan gratis) **se duerme a los 15 minutos sin uso**: la primera consulta
+después de un rato puede tardar cerca de un minuto en responder mientras el servidor despierta.
+Las siguientes son normales. Si el mapa parece colgado al abrir el enlace por primera vez en un
+rato, dale un momento antes de recargar.
+
 ## Cómo está hecho
 
 Tres capas desacopladas ([ADR-001](docs/arquitectura/adr/ADR-001-tres-capas.md)):
@@ -104,6 +114,6 @@ Todo entra por pull request con el CI en verde y una revisión. Ver [CONTRIBUTIN
   **Policía Metropolitana de Bogotá (SIEDCO)**, como fuente oficial.
 - Datos cartográficos: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
   (ODbL) · teselas © CARTO.
-- Rutas: OSRM (servidor público de demostración) · geocodificación: Nominatim (OpenStreetMap), en
-  implementación.
+- Rutas: OSRM (servidor público de demostración) · geocodificación de direcciones: Nominatim
+  (OpenStreetMap), con caché y límite de 1 solicitud por segundo.
 - Código: [MIT](LICENSE), para fines académicos. React y Express (MIT), Leaflet (BSD-2-Clause).

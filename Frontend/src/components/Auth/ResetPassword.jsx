@@ -43,14 +43,14 @@ function ResetPassword() {
         <form onSubmit={enviar}>
           <label className={etiqueta}>Contraseña nueva</label>
           <input
-            type="password" required minLength={6} value={password}
+            type="password" required minLength={8} value={password}
             autoComplete="new-password" onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 6 caracteres" className={campo}
+            placeholder="Mínimo 8 caracteres" className={campo}
           />
 
           <label className={etiqueta}>Repítela</label>
           <input
-            type="password" required minLength={6} value={repetir}
+            type="password" required minLength={8} value={repetir}
             autoComplete="new-password" onChange={(e) => setRepetir(e.target.value)}
             className={campo}
           />
