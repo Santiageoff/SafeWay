@@ -92,3 +92,60 @@ export const getMyReports = async () => {
   const response = await api.get('/api/reports/mine')
   return response.data
 }
+
+// ---------- Perfil proactivo (issue #8) ----------
+// Todos exigen sesión (el interceptor ya manda el JWT si la hay).
+
+// Estado vigente de los tres consentimientos (Ley 1581): route_history,
+// habitual_routes, alerts. Todos empiezan en false.
+export const getConsents = async () => {
+  const response = await api.get('/api/profile/consents')
+  return response.data.data
+}
+
+// Otorga o revoca uno. Nunca borra: añade una fila, para que quede prueba
+// de cada decisión. Devuelve el estado completo ya actualizado.
+export const saveConsent = async (purpose, granted) => {
+  const response = await api.post('/api/profile/consents', { purpose, granted })
+  return response.data.data
+}
+
+export const getPreferences = async () => {
+  const response = await api.get('/api/profile/preferences')
+  return response.data.data
+}
+
+// patch: alertsEnabled, minRiskLevel, quietHoursStart, quietHoursEnd — todos opcionales.
+export const savePreferences = async (patch) => {
+  const response = await api.put('/api/profile/preferences', patch)
+  return response.data.data
+}
+
+// Corre el motor para la persona: detecta rutas habituales y crea alertas si
+// subió el riesgo. La interfaz lo llama al abrir la app (con sesión).
+export const refreshProfile = async () => {
+  const response = await api.post('/api/profile/refresh')
+  return response.data.data
+}
+
+export const getAlerts = async (unseenOnly = false) => {
+  const response = await api.get('/api/profile/alerts', { params: unseenOnly ? { unseen: 'true' } : {} })
+  return response.data.data
+}
+
+export const markAlertSeen = async (id) => {
+  const response = await api.patch(`/api/profile/alerts/${id}/seen`)
+  return response.data.data
+}
+
+export const getHabitualRoutes = async () => {
+  const response = await api.get('/api/profile/habitual-routes')
+  return response.data.data
+}
+
+// Derecho de supresión: borra el historial y las rutas habituales deducidas
+// de él (sus alertas se borran en cascada).
+export const deleteProfileHistory = async () => {
+  const response = await api.delete('/api/profile/history')
+  return response.data.data
+}
