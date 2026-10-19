@@ -68,6 +68,26 @@ https://safeway.vercel.app,https://safeway-git-main-equipo.vercel.app
   en responder. Para medir el tiempo de respuesta (indicadores, issue #7), hay que despertar el
   servicio antes con una llamada a `/health`.
 - 750 horas gratis al mes por workspace: alcanza para un servicio encendido todo el mes.
+- **Supabase (plan gratis) pausa el proyecto tras una semana sin actividad.** Mientras está
+  pausado, `/health` dice `"supabaseReachable": false` y la API sirve el dataset de respaldo
+  (`localitySource: "respaldo-local"`). Se reactiva desde el panel de Supabase en unos minutos.
+
+## Mantenerlo despierto
+
+El workflow `.github/workflows/mantener-despierto.yml` visita `/health` **cada 10 minutos de
+6 a. m. a 11 p. m. (hora de Bogotá)**. Con eso:
+
+- Render no se duerme en el horario en que la gente usa la app (de noche sí, a propósito:
+  17 h/día ≈ 530 h/mes, dentro de las 750 gratis).
+- Supabase recibe una consulta real todos los días y no se pausa.
+
+Si Supabase no responde, el workflow sale con una advertencia amarilla en la pestaña **Actions**
+de GitHub; si la API no responde en 3 intentos, sale en rojo. Para correrlo a mano: **Actions →
+Mantener despierto → Run workflow**. Si cambia la URL de la API, se actualiza en **Settings →
+Secrets and variables → Actions → Variables → `SAFEWAY_API_URL`**, sin tocar el archivo.
+
+GitHub puede retrasar las tareas programadas en horas de mucho uso, así que alguna vez Render
+puede alcanzar a dormirse; la primera consulta después tardará ~1 min, como siempre.
 
 ## Migraciones
 
