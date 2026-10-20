@@ -102,10 +102,10 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
             <>
               <label className={etiqueta}>Contraseña</label>
               <input
-                type="password" required minLength={6} value={password}
+                type="password" required minLength={8} value={password}
                 autoComplete={modo === MODOS.registro ? 'new-password' : 'current-password'}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres" className={campo}
+                placeholder="Mínimo 8 caracteres" className={campo}
               />
             </>
           )}
