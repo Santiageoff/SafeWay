@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import MapView from './components/Map/MapView'
 import SearchBar from './components/Search/SearchBar'
 import VehicleSelector from './components/Search/VehicleSelector'
@@ -7,7 +7,7 @@ import ReportButton from './components/Alert/ReportButton'
 import UserMenu from './components/Auth/UserMenu'
 import { useAuth } from './context/useAuth'
 import { getRiskZones, getReports, getMyReports, refreshProfile, getAlerts } from './services/api'
-import { RISK_LABELS } from './utils/risk'
+import { RISK_LABELS, RISK_TAILWIND } from './utils/risk'
 import './index.css'
 
 // El mapa (Leaflet) es lo primero que hay que pintar; estos son paneles que
@@ -35,6 +35,8 @@ function App() {
   const [destinationZone, setDestinationZone] = useState(null)
   const [routeData, setRouteData] = useState(null)
   const [routeSheetOpen, setRouteSheetOpen] = useState(false)
+  // Ruta que se ve en el mapa: 'segura' (la recomendada) o 'rapida'.
+  const [selectedRouteId, setSelectedRouteId] = useState('segura')
 
   // Botón de alerta
   const [toast, setToast] = useState(null)          // { report, remainingToday, undoWindowSeconds }
@@ -141,6 +143,10 @@ function App() {
   }, [selectedVehicle, loadRiskZones, loadReports, loadPending])
 
   const handleRouteAnalyzed = (result) => {
+    setSelectedRouteId('segura')
+    // En el celular, al analizar se cierra la hoja para ver la ruta en el
+    // mapa; el detalle queda a un toque (tarjeta de resumen).
+    setRouteSheetOpen(false)
     setRouteResult(result)
     setHighlightZones(result.zonesInRoute || [])
     setOriginZone(result.origin || null)
@@ -150,6 +156,7 @@ function App() {
 
   const handleVehicleChange = (vehicle) => {
     setSelectedVehicle(vehicle)
+    setSelectedRouteId('segura')
     // Limpiar resultado de ruta al cambiar vehículo
     setRouteResult(null)
     setHighlightZones([])
@@ -164,6 +171,24 @@ function App() {
   }
 
   const totalReports = reports.length
+
+  // Opciones de ruta (segura / rápida) que manda el backend. Memorizado: si
+  // cambiara en cada render, el mapa volvería a encuadrar la ruta cada vez.
+  const routeOptions = useMemo(() => routeData?.routeOptions || [], [routeData])
+  const activeOption = routeOptions.find(o => o.id === selectedRouteId) || null
+  const activeRoute = useMemo(() => {
+    if (!routeData) return null
+    return activeOption ? { ...routeData, routeCoordinates: activeOption.routeCoordinates } : routeData
+  }, [routeData, activeOption])
+  const altRoutes = useMemo(
+    () => routeOptions.filter(o => o.id !== (activeOption?.id ?? 'segura')),
+    [routeOptions, activeOption]
+  )
+  const activeHighlight = useMemo(
+    () => (activeOption ? riskZones.filter(z => activeOption.zonesInRoute.includes(z.name)) : highlightZones),
+    [activeOption, riskZones, highlightZones]
+  )
+  const activeSummary = activeOption || routeResult
 
   const vehicleSelector = <VehicleSelector selected={selectedVehicle} onSelect={handleVehicleChange} />
 
@@ -226,6 +251,8 @@ function App() {
               selectedVehicle={selectedVehicle}
               onRouteAnalyzed={handleRouteAnalyzed}
               vehicleSelector={vehicleSelector}
+              selectedRouteId={selectedRouteId}
+              onSelectRoute={setSelectedRouteId}
             />
           </div>
 
@@ -248,6 +275,26 @@ function App() {
           >
             {routeButtonLabel}
           </button>
+
+          {/* Resumen de la ruta (celular): el mapa queda a la vista y el
+              detalle, con la opción de ruta segura o rápida, a un toque. */}
+          {routeResult && activeSummary && (
+            <button
+              onClick={() => setRouteSheetOpen(true)}
+              className="mt-2 flex min-h-[44px] w-full items-center gap-2 rounded-campo border-3 border-texto bg-superficie px-3 py-2 text-left text-xs text-texto"
+            >
+              <span className={`shrink-0 rounded-campo border-2 border-texto px-2 py-0.5 font-display text-[10px] ${RISK_TAILWIND[activeSummary.overallRisk]?.bg || ''}`}>
+                {RISK_LABELS[activeSummary.overallRisk]?.toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {activeSummary.routeDistance} km · {activeSummary.routeDuration} min
+                {selectedRouteId === 'segura' && routeResult.safestChoice?.avoidedZones?.length > 0 &&
+                  ` · evita ${routeResult.safestChoice.avoidedZones.join(', ')}`}
+                {selectedRouteId === 'rapida' && ' · ruta más rápida'}
+              </span>
+              <span className="shrink-0 font-semibold text-acento">Detalle ›</span>
+            </button>
+          )}
         </div>
 
         {/* Mapa */}
@@ -256,10 +303,12 @@ function App() {
             <MapView
               zones={riskZones}
               selectedVehicle={selectedVehicle}
-              highlightZones={highlightZones}
+              highlightZones={activeHighlight}
               originZone={originZone}
               destinationZone={destinationZone}
-              routeData={routeData}
+              routeData={activeRoute}
+              altRoutes={altRoutes}
+              onSelectRoute={setSelectedRouteId}
               reports={reports}
             />
 
@@ -335,9 +384,11 @@ function App() {
       </div>
 
       {/* Hoja inferior con el formulario (celular) */}
-      {routeSheetOpen && (
+      {/* Siempre montada (oculta con CSS): así el resultado del análisis no
+          se pierde al cerrarla y se puede volver a abrir. */}
+      {(
         <div
-          className="fixed inset-0 z-[1500] flex items-end justify-center bg-texto/60 md:hidden"
+          className={`fixed inset-0 z-[1500] items-end justify-center bg-texto/60 md:hidden ${routeSheetOpen ? 'flex' : 'hidden'}`}
           onClick={(e) => { if (e.target === e.currentTarget) setRouteSheetOpen(false) }}
         >
           <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-tarjeta border-3 border-b-0 border-texto bg-fondo p-4">
@@ -351,6 +402,8 @@ function App() {
                 selectedVehicle={selectedVehicle}
                 onRouteAnalyzed={handleRouteAnalyzed}
                 vehicleSelector={vehicleSelector}
+                selectedRouteId={selectedRouteId}
+                onSelectRoute={setSelectedRouteId}
               />
             </div>
           </div>
