@@ -7,8 +7,11 @@ const AuthModal = lazy(() => import('./AuthModal'))
 
 // Barra de sesion del panel lateral. Con sesion muestra quien eres y deja
 // salir; sin ella, invita a entrar sin bloquear nada: el mapa se ve igual.
+//
+// `unseenAlerts` y `onOpenProfile` vienen de App.jsx: el perfil proactivo
+// (issue #8) se maneja ahí, igual que pendingCount para los reportes.
 
-function UserMenu() {
+function UserMenu({ unseenAlerts = 0, onOpenProfile }) {
   const { haySesion, user, cerrarSesion, disponible } = useAuth()
   const [abierto, setAbierto] = useState(false)
 
@@ -51,12 +54,25 @@ function UserMenu() {
           <div className="truncate text-xs font-semibold text-texto">{nombre}</div>
           <div className="truncate text-[10px] text-texto-tenue">{user.email}</div>
         </div>
-        <button
-          onClick={cerrarSesion}
-          className="shrink-0 rounded-campo border-3 border-texto bg-fondo px-2.5 py-1.5 text-[11px] font-semibold text-texto"
-        >
-          Salir
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            onClick={onOpenProfile}
+            className="relative rounded-campo border-3 border-texto bg-fondo px-2.5 py-1.5 text-[11px] font-semibold text-texto"
+          >
+            Perfil
+            {unseenAlerts > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-texto bg-riesgo-alto px-1 text-[9px] font-bold text-texto">
+                {unseenAlerts > 9 ? '9+' : unseenAlerts}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={cerrarSesion}
+            className="rounded-campo border-3 border-texto bg-fondo px-2.5 py-1.5 text-[11px] font-semibold text-texto"
+          >
+            Salir
+          </button>
+        </div>
       </div>
     </div>
   )

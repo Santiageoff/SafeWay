@@ -1,0 +1,49 @@
+name: Mantener despierto
+
+# Visita /health de la API publicada cada 10 minutos, de 6 a. m. a 11 p. m.
+# (hora de Bogotá), para que:
+#   · Render (plan gratis) no apague el servicio: se duerme a los 15 min sin
+#     visitas y la primera consulta después tarda cerca de un minuto.
+#   · Supabase (plan gratis) no pause el proyecto: lo pausa tras una semana sin
+#     actividad. /health hace una consulta real a la base.
+# De noche Render se duerme a propósito: 17 h/día ≈ 530 h/mes, dentro de las
+# 750 h gratis. Ver docs/despliegue-backend.md.
+#
+# La URL se cambia sin tocar este archivo con la variable de repositorio
+# SAFEWAY_API_URL (Settings → Secrets and variables → Actions → Variables).
+
+on:
+  schedule:
+    # Cron en UTC. Bogotá es UTC-5: 6:00–22:59 en Bogotá = 11:00–03:59 UTC.
+    - cron: '*/10 11-23 * * *'
+    - cron: '*/10 0-3 * * *'
+  workflow_dispatch:   # para correrlo a mano desde la pestaña Actions
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Visitar /health
+        env:
+          API_URL: ${{ vars.SAFEWAY_API_URL || 'https://safeway-api-oiox.onrender.com' }}
+        run: |
+          # Si Render estaba dormido, despertarlo tarda ~1 min: hasta 3 intentos de 90 s.
+          for intento in 1 2 3; do
+            if respuesta=$(curl -sS --max-time 90 "$API_URL/health"); then
+              echo "$respuesta"
+              if echo "$respuesta" | grep -q '"supabaseReachable":true'; then
+                echo "API y Supabase despiertos."
+              else
+                echo "::warning::La API responde, pero Supabase no. Revisa si el proyecto está pausado."
+              fi
+              exit 0
+            fi
+            echo "Intento $intento sin respuesta; reintentando..."
+            sleep 10
+          done
+          echo "::error::La API no respondió en 3 intentos."
+          exit 1

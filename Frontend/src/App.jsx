@@ -6,7 +6,8 @@ import RiskSummary from './components/RiskPanel/RiskSummary'
 import ReportButton from './components/Alert/ReportButton'
 import UserMenu from './components/Auth/UserMenu'
 import { useAuth } from './context/useAuth'
-import { getRiskZones, getReports, getMyReports } from './services/api'
+import { getRiskZones, getReports, getMyReports, refreshProfile, getAlerts } from './services/api'
+import { RISK_LABELS } from './utils/risk'
 import './index.css'
 
 // El mapa (Leaflet) es lo primero que hay que pintar; estos son paneles que
@@ -16,6 +17,7 @@ const ReportToast = lazy(() => import('./components/Alert/ReportToast'))
 const ReportDetails = lazy(() => import('./components/Alert/ReportDetails'))
 const AuthModal = lazy(() => import('./components/Auth/AuthModal'))
 const ResetPassword = lazy(() => import('./components/Auth/ResetPassword'))
+const ProfileModal = lazy(() => import('./components/Profile/ProfileModal'))
 
 const VEHICLE_LABELS = { carro: 'Carro', moto: 'Moto', bici: 'Bici', 'peatón': 'A pie', publico: 'Público' }
 
@@ -39,6 +41,11 @@ function App() {
   const [detailsFor, setDetailsFor] = useState(null) // reporte a completar, o 'new'
   const [pendingCount, setPendingCount] = useState(0)
   const [authMotivo, setAuthMotivo] = useState(null)  // por qué se pide la sesión
+
+  // Perfil proactivo (issue #8)
+  const [newAlerts, setNewAlerts] = useState(null)   // alertas nuevas al abrir la app
+  const [unseenAlerts, setUnseenAlerts] = useState(0) // para el aviso en "Perfil"
+  const [profileOpen, setProfileOpen] = useState(false)
 
   // El mapa se recarga cuando cambia el medio: el mismo dato se repinta según
   // qué robos te afectan a ti. En carro ves dónde roban carros; en bus, dónde
@@ -89,6 +96,35 @@ function App() {
   }, [selectedVehicle, loadRiskZones, loadReports])
 
   useEffect(() => { loadPending() }, [loadPending])
+
+  // Cuántas alertas sin ver tiene, para el aviso sobre el botón "Perfil".
+  const loadUnseenAlerts = useCallback(async () => {
+    if (!haySesion) { setUnseenAlerts(0); return }
+    try {
+      setUnseenAlerts((await getAlerts(true)).length)
+    } catch {
+      setUnseenAlerts(0)
+    }
+  }, [haySesion])
+
+  useEffect(() => { loadUnseenAlerts() }, [loadUnseenAlerts])
+
+  // El motor del perfil proactivo corre "al abrir la app" (docs/api.md): si
+  // detecta que subió el riesgo de una ruta habitual, se avisa aquí mismo.
+  // Sin consentimiento de habitual_routes no hace nada (responde vacío); sin
+  // SUPABASE_SECRET_KEY en el backend da 503, y eso tampoco es un error que
+  // deba ver quien usa la app.
+  useEffect(() => {
+    if (!haySesion) return
+    refreshProfile()
+      .then(r => {
+        if (r.alertasNuevas?.length > 0) {
+          setNewAlerts(r.alertasNuevas)
+          loadUnseenAlerts()
+        }
+      })
+      .catch(() => {})
+  }, [haySesion, loadUnseenAlerts])
 
   // Si el backend responde 401 en mitad de algo (sesión caducada), se abre el
   // login en vez de dejar la pantalla en un estado raro.
@@ -176,7 +212,7 @@ function App() {
           </div>
         </div>
         <div className="w-[150px] shrink-0 md:w-[220px]">
-          <UserMenu />
+          <UserMenu unseenAlerts={unseenAlerts} onOpenProfile={() => setProfileOpen(true)} />
         </div>
       </header>
 
@@ -235,6 +271,27 @@ function App() {
               <span className="-rotate-2 rounded-pastilla border-3 border-texto bg-riesgo-medio px-2.5 py-1 text-[10px] font-bold text-texto shadow-dura-chica">Medio</span>
               <span className="-rotate-2 rounded-pastilla border-3 border-texto bg-riesgo-alto px-2.5 py-1 text-[10px] font-bold text-texto shadow-dura-chica">Alto</span>
             </div>
+
+            {/* Alertas nuevas del perfil proactivo (issue #8), detectadas al
+                abrir la app con sesión. Abajo a la izquierda: el único rincón
+                libre (leyenda arriba-derecha, zoom arriba-izquierda, reportar
+                abajo-derecha). */}
+            {newAlerts && newAlerts.length > 0 && (
+              <div className="absolute bottom-4 left-3 z-[900] w-[260px] rounded-tarjeta border-3 border-texto bg-ok p-3 shadow-dura">
+                <div className="mb-1 flex items-start justify-between gap-2">
+                  <strong className="text-xs text-texto">
+                    🔔 {newAlerts.length === 1 ? 'Subió el riesgo de una ruta tuya' : `Subió el riesgo de ${newAlerts.length} rutas tuyas`}
+                  </strong>
+                  <button onClick={() => setNewAlerts(null)} className="shrink-0 text-xs text-texto-tenue">✕</button>
+                </div>
+                {newAlerts.slice(0, 2).map((a, i) => (
+                  <p key={i} className="m-0 mt-1 text-[11px] text-texto-tenue">
+                    Ahora {RISK_LABELS[a.new_level]?.toLowerCase()}{a.zones?.length > 0 && <> por {a.zones.join(', ')}</>}
+                  </p>
+                ))}
+                <p className="m-0 mt-1.5 text-[10px] text-texto-tenue">Mira el detalle en "Perfil", arriba.</p>
+              </div>
+            )}
 
             {/* Botón de alerta: un toque envía con GPS y hora. */}
             {!toast && (
@@ -322,6 +379,16 @@ function App() {
       {recuperando && (
         <Suspense fallback={null}>
           <ResetPassword />
+        </Suspense>
+      )}
+
+      {profileOpen && (
+        <Suspense fallback={null}>
+          <ProfileModal
+            zones={riskZones}
+            onClose={() => setProfileOpen(false)}
+            onChanged={loadUnseenAlerts}
+          />
         </Suspense>
       )}
     </div>

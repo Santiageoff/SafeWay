@@ -2,6 +2,15 @@ import { useState } from 'react'
 import { analyzeRoute } from '../../services/api'
 import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 
+// Cuando el origen/destino fue una dirección (geocodificada con Nominatim,
+// no el nombre de una localidad), conviene confirmar cómo se entendió: es la
+// única manera de que la persona note si se equivocó de sitio.
+function puntoLabel(punto) {
+  if (!punto) return '?'
+  if (punto.source === 'nominatim' && punto.locality) return `${punto.name} (${punto.locality})`
+  return punto.name
+}
+
 function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null }) {
   const [originInput, setOriginInput] = useState('')
   const [destinationInput, setDestinationInput] = useState('')
@@ -61,7 +70,7 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
             value={originInput}
             onChange={(e) => setOriginInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ej: Chapinero"
+            placeholder="Ej: Chapinero o Calle 72 # 7-30"
             disabled={loading}
             className={inputClass}
           />
@@ -73,7 +82,7 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
             value={destinationInput}
             onChange={(e) => setDestinationInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ej: Kennedy"
+            placeholder="Ej: Kennedy o Parque de la 93"
             disabled={loading}
             className={inputClass}
           />
@@ -117,8 +126,12 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
               RIESGO {RISK_LABELS[level]?.toUpperCase() || RISK_LABELS.low.toUpperCase()}
             </div>
 
+            <p className="mt-2 text-xs font-semibold text-texto">
+              {puntoLabel(result.origin)} → {puntoLabel(result.destination)}
+            </p>
+
             {result.timeWindow && (
-              <p className="mt-2 text-[11px] text-texto-tenue">
+              <p className="mt-1 text-[11px] text-texto-tenue">
                 Evaluado para la {result.timeWindow.label}
               </p>
             )}
