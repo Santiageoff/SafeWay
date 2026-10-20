@@ -19,7 +19,15 @@ const TIPS_ALTO = {
     'peatón': ['Camina por zonas iluminadas', 'Evita calles solitarias', 'Mantén el celular guardado'],
     publico: ['Mantén el celular guardado, no lo uses en el bus', 'Cuidado en la aglomeración al entrar y salir', 'Lleva el maletín adelante']
 }
-const TIPS_GENERALES = ['Mantén las puertas cerradas', 'No te detengas en zonas oscuras', 'Usa rutas conocidas']
+// Consejos cuando el riesgo no es alto: también dependen del medio (antes
+// todos recibían los de carro, y en bici salía "Mantén las puertas cerradas").
+const TIPS_GENERALES = {
+    carro: ['Mantén las puertas cerradas', 'No te detengas en zonas oscuras', 'Usa rutas conocidas'],
+    moto: ['Usa casco y chaleco reflectivo', 'No dejes la moto sola en zonas oscuras', 'Usa rutas conocidas'],
+    bici: ['Usa ciclorruta si está disponible', 'Lleva candado si vas a parar', 'Usa rutas conocidas'],
+    'peatón': ['Camina por zonas iluminadas', 'Mantén el celular guardado', 'Usa rutas conocidas'],
+    publico: ['Mantén el celular guardado', 'Lleva el maletín adelante', 'Ojo al entrar y salir del bus']
+}
 
 const DESCRIPCION = {
     low: 'Ruta relativamente segura con pocas zonas de riesgo.',
@@ -100,7 +108,8 @@ function recomendacion({ origen, destino, vehicleType, nivel, zonas, routeSource
 }
 
 function consejos(vehicleType, nivel) {
-    return nivel === 'high' && TIPS_ALTO[vehicleType] ? TIPS_ALTO[vehicleType] : TIPS_GENERALES
+    if (nivel === 'high' && TIPS_ALTO[vehicleType]) return TIPS_ALTO[vehicleType]
+    return TIPS_GENERALES[vehicleType] || TIPS_GENERALES.carro
 }
 
 // Resultado completo del análisis, con la misma forma que ya consume el

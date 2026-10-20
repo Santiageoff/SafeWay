@@ -109,6 +109,36 @@ Respuesta (real, 23-sep, con el dataset de respaldo; `zonesInRoute` recortado):
   "tips": ["Usa casco y ropa reflectiva", "Evita zonas oscuras de noche", "Prefiere vías principales"]
 }
 ```
+**Ruta más segura.** La ruta de la respuesta (`routeCoordinates`, `overallRisk`, etc.) es la
+**recomendada**: la más segura entre la más rápida, las alternativas que ofrezca OSRM y desvíos
+alrededor de cada zona de riesgo alto que cruce la rápida. Solo se aceptan rutas que tarden como
+mucho 1,6 veces la más rápida (`SAFE_ROUTE_MAX_PENALTY`). Las localidades de origen y destino no
+cuentan para elegir: hay que llegar a ellas.
+
+```json
+"safestChoice": {
+  "strategy": "desvio",
+  "avoidedZones": ["Kennedy"],
+  "unavoidableZones": [],
+  "remainingHighZones": [],
+  "extraMinutes": 6,
+  "candidatesEvaluated": 4
+},
+"routeOptions": [
+  { "id": "segura", "recommended": true,  "routeCoordinates": ["…"], "routeDistance": 15.1, "routeDuration": 31, "overallRisk": "medium", "insecurityPercentage": 40, "zonesInRoute": ["Suba", "Engativá"] },
+  { "id": "rapida", "recommended": false, "routeCoordinates": ["…"], "routeDistance": 13.2, "routeDuration": 25, "overallRisk": "high",   "insecurityPercentage": 62, "zonesInRoute": ["Suba", "Kennedy"] }
+]
+```
+
+| Campo | Significado |
+|---|---|
+| `safestChoice.strategy` | `rapida` = la más rápida ya era la más segura · `alternativa` = una alternativa de OSRM · `desvio` = una ruta con punto de paso que rodea una zona alta |
+| `avoidedZones` | Zonas de riesgo alto que cruzaba la más rápida y la recomendada evita |
+| `unavoidableZones` | Origen o destino de riesgo alto: no se pueden evitar |
+| `remainingHighZones` | Zonas altas que la recomendada todavía cruza (no hubo alternativa razonable) |
+| `extraMinutes` | Cuánto más tarda la recomendada que la más rápida |
+| `routeOptions` | Las rutas para escoger en el mapa. Solo trae `rapida` si es distinta de la segura. Ausente si OSRM no respondió (línea recta) |
+
 `recommendation` sale del **nivel de la ruta** y nombra las localidades que lo suben. Antes
 copiaba la recomendación de la localidad de origen, y una ruta `high` podía decir "Zona segura"
 (corregido en el issue #6). Si la ruta se estimó en línea recta, lo dice.
