@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import MapView from './components/Map/MapView'
 import SearchBar from './components/Search/SearchBar'
 import VehicleSelector from './components/Search/VehicleSelector'
@@ -6,7 +6,7 @@ import RiskSummary from './components/RiskPanel/RiskSummary'
 import ReportButton from './components/Alert/ReportButton'
 import UserMenu from './components/Auth/UserMenu'
 import { useAuth } from './context/useAuth'
-import { getRiskZones, getReports, getMyReports, refreshProfile, getAlerts } from './services/api'
+import { getRiskZones, getReports, getMyReports, refreshProfile, getAlerts, analyzeRoute } from './services/api'
 import { RISK_LABELS, RISK_TAILWIND } from './utils/risk'
 import './index.css'
 
@@ -37,6 +37,12 @@ function App() {
   const [routeSheetOpen, setRouteSheetOpen] = useState(false)
   // Ruta que se ve en el mapa: 'segura' (la recomendada) o 'rapida'.
   const [selectedRouteId, setSelectedRouteId] = useState('segura')
+  // El análisis vive aquí (no en SearchBar) para poder repetirlo al cambiar
+  // el medio: { origin, destination } de la última ruta pedida.
+  const [lastQuery, setLastQuery] = useState(null)
+  const [routeLoading, setRouteLoading] = useState(false)
+  const [routeError, setRouteError] = useState(null)
+  const routeRequestId = useRef(0)
 
   // Botón de alerta
   const [toast, setToast] = useState(null)          // { report, remainingToday, undoWindowSeconds }
@@ -142,11 +148,19 @@ function App() {
     loadPending()
   }, [selectedVehicle, loadRiskZones, loadReports, loadPending])
 
-  const handleRouteAnalyzed = (result) => {
+  const clearRoute = () => {
+    setRouteResult(null)
+    setHighlightZones([])
+    setOriginZone(null)
+    setDestinationZone(null)
+    setRouteData(null)
+  }
+
+  const handleRouteAnalyzed = (result, { cerrarHoja = true } = {}) => {
     setSelectedRouteId('segura')
     // En el celular, al analizar se cierra la hoja para ver la ruta en el
     // mapa; el detalle queda a un toque (tarjeta de resumen).
-    setRouteSheetOpen(false)
+    if (cerrarHoja) setRouteSheetOpen(false)
     setRouteResult(result)
     setHighlightZones(result.zonesInRoute || [])
     setOriginZone(result.origin || null)
@@ -154,15 +168,44 @@ function App() {
     setRouteData(result)
   }
 
+  // Pide el análisis. Si llegan dos respuestas (cambiaste de medio rápido),
+  // solo cuenta la última: un contador descarta las que llegan tarde.
+  const runAnalysis = async (origin, destination, vehicle, opciones) => {
+    const id = ++routeRequestId.current
+    setLastQuery({ origin, destination })
+    setRouteLoading(true)
+    setRouteError(null)
+    clearRoute()
+    try {
+      const { data } = await analyzeRoute(origin, destination, vehicle || 'carro')
+      if (id !== routeRequestId.current) return
+      if (!data.success) {
+        setRouteError(data.error || 'No se encontró la zona. Intenta con: Chapinero, Kennedy, Suba...')
+        return
+      }
+      handleRouteAnalyzed(data, opciones)
+    } catch (err) {
+      if (id !== routeRequestId.current) return
+      setRouteError(err.response?.data?.error || 'No se pudo conectar con el servidor')
+    } finally {
+      if (id === routeRequestId.current) setRouteLoading(false)
+    }
+  }
+
+  const handleAnalyze = (origin, destination) => runAnalysis(origin, destination, selectedVehicle)
+
+  // Al cambiar el medio, la misma ruta se vuelve a analizar con el nuevo:
+  // el riesgo, el trazado, el tiempo y los consejos dependen del medio.
   const handleVehicleChange = (vehicle) => {
+    if (vehicle === selectedVehicle) return
     setSelectedVehicle(vehicle)
     setSelectedRouteId('segura')
-    // Limpiar resultado de ruta al cambiar vehículo
-    setRouteResult(null)
-    setHighlightZones([])
-    setOriginZone(null)
-    setDestinationZone(null)
-    setRouteData(null)
+    if (lastQuery) {
+      // La hoja del celular sigue abierta: la persona está escogiendo.
+      runAnalysis(lastQuery.origin, lastQuery.destination, vehicle, { cerrarHoja: false })
+    } else {
+      clearRoute()
+    }
   }
 
   const handleReported = (result) => {
@@ -221,9 +264,11 @@ function App() {
     </div>
   )
 
-  const routeButtonLabel = routeResult
-    ? `${routeResult.origin?.name?.toUpperCase()} → ${routeResult.destination?.name?.toUpperCase()} · ${VEHICLE_LABELS[selectedVehicle] || selectedVehicle}`
-    : 'PLANEA TU RUTA'
+  const routeButtonLabel = routeLoading
+    ? `ANALIZANDO EN ${(VEHICLE_LABELS[selectedVehicle] || selectedVehicle).toUpperCase()}…`
+    : routeResult
+      ? `${routeResult.origin?.name?.toUpperCase()} → ${routeResult.destination?.name?.toUpperCase()} · ${VEHICLE_LABELS[routeResult.vehicleType] || routeResult.vehicleType}`
+      : 'PLANEA TU RUTA'
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-fondo">
@@ -248,8 +293,10 @@ function App() {
 
           <div className="rounded-tarjeta border-3 border-texto bg-superficie p-4 shadow-dura">
             <SearchBar
-              selectedVehicle={selectedVehicle}
-              onRouteAnalyzed={handleRouteAnalyzed}
+              onAnalyze={handleAnalyze}
+              result={routeResult}
+              loading={routeLoading}
+              error={routeError}
               vehicleSelector={vehicleSelector}
               selectedRouteId={selectedRouteId}
               onSelectRoute={setSelectedRouteId}
@@ -399,8 +446,10 @@ function App() {
             <div className="mb-4">{reportsStrip}</div>
             <div className="rounded-tarjeta border-3 border-texto bg-superficie p-4 shadow-dura">
               <SearchBar
-                selectedVehicle={selectedVehicle}
-                onRouteAnalyzed={handleRouteAnalyzed}
+                onAnalyze={handleAnalyze}
+                result={routeResult}
+                loading={routeLoading}
+                error={routeError}
                 vehicleSelector={vehicleSelector}
                 selectedRouteId={selectedRouteId}
                 onSelectRoute={setSelectedRouteId}
@@ -441,6 +490,7 @@ function App() {
             zones={riskZones}
             onClose={() => setProfileOpen(false)}
             onChanged={loadUnseenAlerts}
+            onCompleteReport={(report) => { setProfileOpen(false); setDetailsFor(report) }}
           />
         </Suspense>
       )}
