@@ -69,7 +69,7 @@ function MapController({ zones, routeData }) {
     if ((didFitZones.current && !volviendoDeRuta) || !zones || zones.length === 0) return
 
     const validCoords = zones
-      .filter(z => Array.isArray(z.coordinates) && z.coordinates.length === 2)
+      .filter(z => Array.isArray(z.coordinates) && z.coordinates.length === 2 && !esRural(z))
       .map(z => z.coordinates)
 
     if (validCoords.length > 0) {
@@ -81,6 +81,14 @@ function MapController({ zones, routeData }) {
 
   return null
 }
+
+// Sumapaz (id 20) es la localidad rural de Bogotá: casi el 80% del área del
+// Distrito, a unos 40 km al sur del casco urbano. Su punto está bien puesto,
+// pero si se encuadra junto con las otras 19 el mapa se aleja tanto que la
+// ciudad queda como una manchita. Se encuadra la ciudad; Sumapaz sigue en el
+// mapa y se ve al alejar el zoom.
+const LOCALIDADES_RURALES = [20]
+const esRural = (zone) => LOCALIDADES_RURALES.includes(zone.id)
 
 function ProgressBar({ percentage, color }) {
   return (
@@ -119,12 +127,12 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
 
   return (
     <MapContainer
-      // Centro y zoom ya calculados para las 20 localidades (de Usaquén a
-      // Sumapaz): arrancar aquí evita pedir un primer set de teselas a un
-      // zoom que igual se va a descartar en cuanto fitBounds calcule el
-      // real, que es lo que más tardaba en el LCP (issue #12).
-      center={[4.391, -74.195]}
-      zoom={9}
+      // Centro y zoom ya calculados para las 19 localidades urbanas (sin
+      // Sumapaz, ver LOCALIDADES_RURALES): arrancar aquí evita pedir un
+      // primer set de teselas a un zoom que igual se va a descartar en cuanto
+      // fitBounds calcule el real, que es lo que más tardaba en el LCP (#12).
+      center={[4.64, -74.11]}
+      zoom={11}
       style={{ width: '100%', height: '100%' }}
     >
       {/* El basemap gratuito de CARTO (basemaps.cartocdn.com) empezó a pedir
@@ -238,6 +246,11 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
                   <span className="inline-block h-3 w-3 rounded-full border-2 border-texto" style={{ backgroundColor: color }}></span>
                   <strong className="text-lg font-bold">{zone.name}</strong>
                 </div>
+                {esRural(zone) && (
+                  <p className="mb-3 text-[11px] leading-relaxed text-texto-tenue">
+                    Localidad rural de Bogotá, a unos 40 km al sur de la ciudad. El punto marca el centro de su zona rural.
+                  </p>
+                )}
 
                 {/* Barra de progreso de inseguridad */}
                 <div className="mb-3">
