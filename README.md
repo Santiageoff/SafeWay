@@ -11,15 +11,84 @@ decisión concreta: *¿por dónde voy?*
 > SafeWay es una herramienta de apoyo informativo. **No es un canal de emergencia ni reemplaza
 > la Línea 123.**
 
+## Cómo se ve
+
+Si no quieres abrir el enlace, así funciona SafeWay.
+
+**1. El mapa de riesgo.** Cada círculo es una localidad de Bogotá, pintada en verde, amarillo o
+rojo según los robos **del medio en que te mueves** y la franja horaria actual: en carro pesan
+los robos de carro; en bus, el cosquilleo y el hurto de celular.
+
+![Mapa de riesgo de Bogotá en el computador](docs/capturas/escritorio-mapa.png)
+
+**2. Analizar una ruta.** Escribes origen y destino (una localidad o una dirección como
+"Calle 72 # 7-30") y el medio de transporte. SafeWay busca la **ruta más segura**: compara las
+alternativas y, si todas cruzan una zona roja, prueba desvíos para rodearla. Puedes escoger
+entre 🛡 *Más segura* y ⚡ *Más rápida*; la otra se ve punteada en el mapa.
+
+![Análisis de ruta con la opción más segura y la más rápida](docs/capturas/escritorio-ruta.png)
+
+**3. En el celular.** Al analizar, se ve el mapa con la ruta y un resumen corto; el detalle
+(riesgo, tiempo, zonas que evita y consejos para tu medio) queda a un toque.
+
+<p align="center">
+  <img src="docs/capturas/celular-inicio.png" alt="SafeWay en el celular: inicio" width="240">
+  &nbsp;
+  <img src="docs/capturas/celular-ruta.png" alt="SafeWay en el celular: ruta en el mapa" width="240">
+  &nbsp;
+  <img src="docs/capturas/celular-detalle.png" alt="SafeWay en el celular: detalle de la ruta" width="240">
+</p>
+
+**4. Reportar un robo y ver tu historial.** El botón rojo envía el reporte con tu ubicación y la
+hora en un toque; los detalles (qué te robaron, dónde, qué pasó) los completas después con calma.
+En **Perfil** ves todos tus reportes y, solo si das permiso, tus rutas habituales y alertas.
+
+<p align="center">
+  <img src="docs/capturas/reportar.png" alt="Formulario para reportar un robo" width="320">
+  &nbsp;
+  <img src="docs/capturas/perfil-historial.png" alt="Perfil con el historial de reportes" width="320">
+</p>
+
+## Qué puede hacer
+
+| Función | Detalle |
+|---|---|
+| Mapa de riesgo por medio | Carro, moto, bici, a pie o transporte público; cambia según la franja horaria (mañana, tarde, noche, madrugada) |
+| Ruta más segura | Evita las localidades de riesgo alto si hay una alternativa razonable (hasta 1,6 veces el tiempo de la más rápida) y dice cuáles evita y cuánto tiempo cuesta |
+| Direcciones reales | Acepta localidades o direcciones; muestra cómo entendió la dirección para que puedas corregirla |
+| Consejos por medio | Los consejos cambian con el medio: no te dice "cierra las puertas" si vas a pie |
+| Reporte ciudadano | Un toque con GPS; sin GPS, marcas el punto en el mapa. Máximo 5 reportes en 24 horas y 30 segundos para deshacer |
+| Historial de reportes | En Perfil: cada reporte se despliega con su detalle y se puede completar o editar |
+| Perfil proactivo | Con tu consentimiento (Ley 1581 de 2012) detecta tus rutas habituales y te avisa si sube su riesgo |
+| Privacidad | Nunca guarda la dirección que escribes; los robos a vivienda se muestran difuminados (~300 m) |
+
+**Límites que conviene saber:** el riesgo se mide por localidad, no por calle. Si tu origen o
+destino está en zona roja, esa parte no se puede evitar. En transporte público el trazado va por
+las vías principales con un tiempo estimado de bus; no sigue una ruta exacta de TransMilenio o
+SITP. Sumapaz es la localidad rural del Distrito y queda unos 40 km al sur de la ciudad.
+
 ## Probarla en vivo
 
-<!-- issue #13: reemplazar con la URL real de Vercel una vez publicada -->
-🔗 **[safeway.vercel.app](https://safeway.vercel.app)** *(pendiente de publicar)*
+🔗 **[safe-way-one.vercel.app](https://safe-way-one.vercel.app)**
+
+Funciona en computador y en celular, sin instalar nada. Ver el mapa y analizar rutas no pide
+cuenta; reportar un robo y el perfil, sí.
 
 El backend (Render, plan gratis) **se duerme a los 15 minutos sin uso**: la primera consulta
 después de un rato puede tardar cerca de un minuto en responder mientras el servidor despierta.
 Las siguientes son normales. Si el mapa parece colgado al abrir el enlace por primera vez en un
 rato, dale un momento antes de recargar.
+
+## Dónde corre
+
+| Parte | Servicio | Guía |
+|---|---|---|
+| Frontend | Vercel | [docs/despliegue-frontend.md](docs/despliegue-frontend.md) |
+| Backend (API) | Render, plan gratis (`render.yaml`) | [docs/despliegue-backend.md](docs/despliegue-backend.md) |
+| Base de datos y cuentas | Supabase | [docs/setup-supabase.md](docs/setup-supabase.md) |
+
+Un workflow programado (`.github/workflows/mantener-despierto.yml`) consulta la API cada 10
+minutos en horario de uso para que Render no se duerma y Supabase no se pause por inactividad.
 
 ## Cómo está hecho
 
@@ -112,8 +181,9 @@ Todo entra por pull request con el CI en verde y una revisión. Ver [CONTRIBUTIN
 
 - Cifras de criminalidad: **Secretaría Distrital de Seguridad, Convivencia y Justicia** y
   **Policía Metropolitana de Bogotá (SIEDCO)**, como fuente oficial.
-- Datos cartográficos: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors
-  (ODbL) · teselas © CARTO.
-- Rutas: OSRM (servidor público de demostración) · geocodificación de direcciones: Nominatim
-  (OpenStreetMap), con caché y límite de 1 solicitud por segundo.
+- Datos cartográficos y teselas: © [OpenStreetMap](https://www.openstreetmap.org/copyright)
+  contributors (ODbL).
+- Rutas: OSRM, servidores públicos de FOSSGIS (`routing.openstreetmap.de`, un perfil por medio:
+  carro, bici y a pie) · geocodificación de direcciones: Nominatim (OpenStreetMap), con caché y
+  límite de 1 solicitud por segundo.
 - Código: [MIT](LICENSE), para fines académicos. React y Express (MIT), Leaflet (BSD-2-Clause).
