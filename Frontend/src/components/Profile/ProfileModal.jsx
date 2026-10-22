@@ -4,6 +4,7 @@ import {
   getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory, getMyReports
 } from '../../services/api'
 import { typeById } from '../Alert/reportTypes'
+import { VEHICLE_LABELS_CORTOS } from './medios'
 import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 import { WINDOW_LABELS, nombreLocalidad, formatDiasSemana, formatFechaRelativa } from '../../utils/profile'
 
@@ -48,8 +49,10 @@ function Toggle({ checked, onChange, disabled, label }) {
     >
       <span
         className={
-          'absolute top-0.5 h-4 w-4 rounded-full bg-texto transition-transform ' +
-          (checked ? 'translate-x-[22px]' : 'translate-x-1')
+          // left/top fijos: sin ellos la bolita arrancaba en el centro del
+          // botón y, encendida, se salía del recuadro.
+          'absolute left-[2px] top-[3px] h-4 w-4 rounded-full transition-transform ' +
+          (checked ? 'translate-x-[22px] bg-superficie' : 'translate-x-0 bg-texto')
         }
       />
     </button>
@@ -69,9 +72,98 @@ function Seccion({ titulo, children }) {
 const formatoFecha = new Intl.DateTimeFormat('es-CO', {
   day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
 })
+const formatoHora = new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: '2-digit' })
 const fechaDelReporte = (r) => {
   const fecha = new Date(r.occurred_at || r.created_at)
   return Number.isNaN(fecha.getTime()) ? '' : formatoFecha.format(fecha)
+}
+
+function Fila({ etiqueta, children }) {
+  return (
+    <div className="flex gap-2 py-1">
+      <dt className="w-24 shrink-0 text-[11px] font-semibold text-texto-tenue">{etiqueta}</dt>
+      <dd className="m-0 min-w-0 flex-1 text-[11px] leading-relaxed text-texto">{children}</dd>
+    </div>
+  )
+}
+
+// Un reporte del historial. Un toque lo despliega con todo el detalle.
+function TarjetaReporte({ reporte: r, abierta, onToggle, onCompleteReport }) {
+  const tipo = typeById(r.type)
+  const sinDetalles = !r.type
+  const desde = r.occurred_at ? formatoFecha.format(new Date(r.occurred_at)) : ''
+  // Si el rango es del mismo día, la hora final va sin repetir la fecha.
+  const mismoDia = r.occurred_end && r.occurred_at &&
+    new Date(r.occurred_end).toDateString() === new Date(r.occurred_at).toDateString()
+  const hasta = !r.occurred_end ? ''
+    : (mismoDia ? formatoHora : formatoFecha).format(new Date(r.occurred_end))
+  const creado = r.created_at ? formatoFecha.format(new Date(r.created_at)) : ''
+  const medios = (tipo?.modes || []).map(m => VEHICLE_LABELS_CORTOS[m] || m)
+
+  return (
+    <li className="rounded-campo border-3 border-texto bg-fondo">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={abierta}
+        className="flex w-full items-start justify-between gap-2 px-3 py-2.5 text-left"
+      >
+        <div className="min-w-0">
+          <p className="m-0 text-xs font-semibold text-texto">
+            {tipo ? `${tipo.icon} ${tipo.label}` : '❔ Sin tipo todavía'}
+            {r.locality && <span className="font-normal text-texto-tenue"> · {r.locality}</span>}
+          </p>
+          <p className="m-0 mt-0.5 text-[11px] text-texto-tenue">
+            {fechaDelReporte(r)}
+            {r.station && <> · {r.station}</>}
+          </p>
+          {!abierta && r.description && (
+            <p className="m-0 mt-1 truncate text-[11px] text-texto">{r.description}</p>
+          )}
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5">
+          {sinDetalles && (
+            <span className="rounded-campo border-2 border-texto bg-riesgo-medio px-1.5 py-0.5 text-[10px] font-semibold text-texto">
+              Sin detalles
+            </span>
+          )}
+          <span className={`text-sm text-texto transition-transform ${abierta ? 'rotate-180' : ''}`}>▾</span>
+        </span>
+      </button>
+
+      {abierta && (
+        <div className="border-t-2 border-texto/20 px-3 pb-3 pt-1">
+          <dl className="m-0">
+            <Fila etiqueta="Tipo">{tipo ? `${tipo.icon} ${tipo.label}` : 'Sin tipo todavía'}</Fila>
+            <Fila etiqueta="Cuándo pasó">{hasta ? `Entre ${desde} y ${hasta}` : desde}</Fila>
+            <Fila etiqueta="Dónde">
+              {r.locality || 'Fuera de las 20 localidades'}
+              {r.station && <> · {r.station}</>}
+              {r.precision === 'approx' && (
+                <span className="block text-texto-tenue">Ubicación aproximada (~300 m) para proteger tu privacidad.</span>
+              )}
+            </Fila>
+            <Fila etiqueta="Qué pasó">
+              {r.description || <span className="text-texto-tenue">No escribiste detalles.</span>}
+            </Fila>
+            {medios.length > 0 && (
+              <Fila etiqueta="Sube el riesgo">Para quien va en: {medios.join(', ')}</Fila>
+            )}
+            {creado && creado !== desde && <Fila etiqueta="Reportado">{creado}</Fila>}
+          </dl>
+          {onCompleteReport && (
+            <button
+              type="button"
+              onClick={() => onCompleteReport(r)}
+              className={`mt-2 min-h-[40px] w-full rounded-campo border-3 border-texto px-3 py-1.5 text-xs font-semibold text-texto ${sinDetalles ? 'bg-riesgo-medio' : 'bg-superficie'}`}
+            >
+              {sinDetalles ? 'Completar detalles' : 'Editar detalles'}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  )
 }
 
 // Historial de robos que reportó la persona (GET /api/reports/mine). Va
@@ -79,6 +171,7 @@ const fechaDelReporte = (r) => {
 function MisReportes({ onCompleteReport }) {
   const [reportes, setReportes] = useState(null)
   const [error, setError] = useState(null)
+  const [abierto, setAbierto] = useState(null) // id del reporte desplegado
 
   useEffect(() => {
     let cancelado = false
@@ -101,37 +194,15 @@ function MisReportes({ onCompleteReport }) {
       )}
       {reportes?.length > 0 && (
         <ul className="m-0 list-none space-y-2 p-0">
-          {reportes.map(r => {
-            const tipo = typeById(r.type)
-            const sinDetalles = !r.type
-            return (
-              <li key={r.id} className="rounded-campo border-3 border-texto bg-fondo px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="m-0 text-xs font-semibold text-texto">
-                      {tipo ? `${tipo.icon} ${tipo.label}` : '❔ Sin tipo todavía'}
-                      {r.locality && <span className="font-normal text-texto-tenue"> · {r.locality}</span>}
-                    </p>
-                    <p className="m-0 mt-0.5 text-[11px] text-texto-tenue">
-                      {fechaDelReporte(r)}
-                      {r.station && <> · {r.station}</>}
-                    </p>
-                    {r.description && (
-                      <p className="m-0 mt-1 text-[11px] leading-relaxed text-texto">{r.description}</p>
-                    )}
-                  </div>
-                  {sinDetalles && onCompleteReport && (
-                    <button
-                      onClick={() => onCompleteReport(r)}
-                      className="shrink-0 rounded-campo border-3 border-texto bg-riesgo-medio px-2 py-1 text-[11px] font-semibold text-texto"
-                    >
-                      Completar
-                    </button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
+          {reportes.map(r => (
+            <TarjetaReporte
+              key={r.id}
+              reporte={r}
+              abierta={abierto === r.id}
+              onToggle={() => setAbierto(abierto === r.id ? null : r.id)}
+              onCompleteReport={onCompleteReport}
+            />
+          ))}
         </ul>
       )}
     </Seccion>
