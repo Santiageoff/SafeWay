@@ -11,7 +11,7 @@ function puntoLabel(punto) {
   return punto.name
 }
 
-function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null }) {
+function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null, selectedRouteId = 'segura', onSelectRoute = () => {} }) {
   const [originInput, setOriginInput] = useState('')
   const [destinationInput, setDestinationInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -118,7 +118,16 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
       )}
 
       {result && !loading && (() => {
-        const level = result.overallRisk || result.riskLevel
+        // Ruta que se está viendo: la segura (recomendada) o la rápida. Los
+        // datos de la respuesta principal son siempre los de la segura.
+        const opciones = result.routeOptions || []
+        const opcion = opciones.find(o => o.id === selectedRouteId) || null
+        const esRapida = opcion?.id === 'rapida'
+        const vista = opcion ? { ...result, ...opcion } : result
+        const nombresZonas = opcion ? opcion.zonesInRoute : (result.zonesInRoute || []).map(z => z.name)
+        const eleccion = result.safestChoice
+        const altasDeLaRapida = eleccion ? [...eleccion.avoidedZones, ...eleccion.remainingHighZones] : []
+        const level = vista.overallRisk || vista.riskLevel
         const plate = RISK_TAILWIND[level] || RISK_TAILWIND.low
         return (
           <div className="mt-4 rounded-tarjeta border-3 border-texto bg-superficie p-3 shadow-dura">
@@ -136,39 +145,75 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
               </p>
             )}
 
+            {/* Escoger ruta: la más segura (recomendada) o la más rápida. */}
+            {opciones.length > 1 && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {opciones.map(o => {
+                  const activa = o.id === selectedRouteId
+                  return (
+                    <button
+                      key={o.id}
+                      onClick={() => onSelectRoute(o.id)}
+                      className={`min-h-[44px] rounded-campo border-3 border-texto px-2 py-1.5 text-left text-[11px] leading-tight ${activa ? 'bg-acento text-white shadow-dura-chica' : 'bg-fondo text-texto'}`}
+                    >
+                      <span className="block font-semibold">{o.id === 'segura' ? '🛡 Más segura' : '⚡ Más rápida'}</span>
+                      <span className="block">{o.routeDuration} min · riesgo {RISK_LABELS[o.overallRisk]?.toLowerCase()}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {!esRapida && eleccion?.avoidedZones?.length > 0 && (
+              <div className="mt-3 rounded-campo border-3 border-texto bg-ok px-3 py-2 text-xs text-texto">
+                ✅ <strong>Evita {eleccion.avoidedZones.join(', ')}</strong>
+                {eleccion.extraMinutes > 0 && ` · ${eleccion.extraMinutes} min más que la más rápida`}
+              </div>
+            )}
+            {!esRapida && opciones.length === 1 && eleccion?.strategy === 'rapida' && eleccion.remainingHighZones.length === 0 && (
+              <div className="mt-3 rounded-campo border-3 border-texto bg-ok px-3 py-2 text-xs text-texto">
+                ✅ La ruta más rápida ya evita las zonas de riesgo alto.
+              </div>
+            )}
+            {esRapida && altasDeLaRapida.length > 0 && (
+              <div className="mt-3 rounded-campo border-3 border-texto bg-riesgo-alto px-3 py-2 text-xs text-texto">
+                ⚠ <strong>La más rápida pasa por {altasDeLaRapida.join(', ')}</strong>, de riesgo alto para este medio.
+              </div>
+            )}
+
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
-                <div className="text-sm font-bold text-texto">{result.routeDistance ?? '—'}</div>
+                <div className="text-sm font-bold text-texto">{vista.routeDistance ?? '—'}</div>
                 <div className="text-[10px] text-texto-tenue">km</div>
               </div>
               <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
-                <div className="text-sm font-bold text-texto">{result.routeDuration ?? '—'}</div>
+                <div className="text-sm font-bold text-texto">{vista.routeDuration ?? '—'}</div>
                 <div className="text-[10px] text-texto-tenue">min</div>
               </div>
               <div className="rounded-campo border-3 border-texto bg-fondo px-2 py-2">
-                <div className="text-sm font-bold text-texto">{result.insecurityPercentage ?? '—'}%</div>
+                <div className="text-sm font-bold text-texto">{vista.insecurityPercentage ?? '—'}%</div>
                 <div className="text-[10px] text-texto-tenue">inseguridad</div>
               </div>
             </div>
 
-            {result.zonesInRoute?.length > 0 && (
+            {nombresZonas.length > 0 && (
               <div className="mt-3">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-texto-tenue">
                   Localidades del trayecto
                 </p>
                 <p className="text-xs text-texto">
-                  {result.zonesInRoute.map(z => z.name).join(' · ')}
+                  {nombresZonas.join(' · ')}
                 </p>
               </div>
             )}
 
-            {result.safestRoute?.avoidZones?.length > 0 && (
+            {!esRapida && result.safestRoute?.avoidZones?.length > 0 && (
               <div className="mt-3 rounded-campo border-3 border-texto bg-riesgo-alto px-3 py-2 text-xs text-texto">
                 <strong>Evita si puedes:</strong> {result.safestRoute.avoidZones.join(', ')}
               </div>
             )}
 
-            {result.recommendation && (
+            {!esRapida && result.recommendation && (
               <p className="mt-3 text-xs text-texto-tenue">{result.recommendation}</p>
             )}
 

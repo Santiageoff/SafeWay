@@ -118,6 +118,12 @@ test('POST /api/route/analyze: camino feliz con OSRM, para los 5 medios', async 
         assert.ok(['low', 'medium', 'high'].includes(r.overallRisk))
         assert.ok(Array.isArray(r.zonesInRoute) && r.zonesInRoute.length > 0)
         assert.ok(Array.isArray(r.tips) && r.tips.length > 0)
+        // Ruta segura: la principal es la recomendada y viene con su resumen.
+        assert.equal(r.routeOptions[0].id, 'segura')
+        assert.equal(r.routeOptions[0].recommended, true)
+        assert.deepEqual(r.routeOptions[0].routeCoordinates, r.routeCoordinates)
+        assert.ok(['rapida', 'alternativa', 'desvio'].includes(r.safestChoice.strategy))
+        assert.ok(Array.isArray(r.safestChoice.avoidedZones))
         // La forma que consume el frontend.
         for (const campo of ['insecurityPercentage', 'routeDuration', 'timeWindow', 'recentReports', 'safestRoute', 'recommendation']) {
             assert.ok(campo in r, `falta ${campo}`)

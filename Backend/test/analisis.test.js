@@ -33,9 +33,12 @@ test('porcentajeInseguridad promedia y da 5 sin zonas', () => {
     assert.equal(a.porcentajeInseguridad([]), 5)
 })
 
-test('consejos por medio solo cuando el riesgo es alto', () => {
+test('consejos según el medio, con riesgo alto y sin él', () => {
     assert.match(a.consejos('moto', 'high')[0], /casco/)
-    assert.deepEqual(a.consejos('moto', 'low'), a.consejos('carro', 'high'))
+    // En bici, sin riesgo alto, nada de "puertas cerradas" (era un consejo de carro).
+    assert.ok(!a.consejos('bici', 'low').some(t => /puertas/i.test(t)))
+    assert.ok(a.consejos('bici', 'medium').some(t => /ciclorruta/i.test(t)))
+    assert.ok(a.consejos('carro', 'low').some(t => /puertas/i.test(t)))
 })
 
 test('analizarRuta arma la respuesta completa', () => {

@@ -50,7 +50,7 @@ function UserMenu({ unseenAlerts = 0, onOpenProfile }) {
   return (
     <div className="rounded-campo border-3 border-texto bg-superficie px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
+        <div className="hidden min-w-0 md:block">
           <div className="truncate text-xs font-semibold text-texto">{nombre}</div>
           <div className="truncate text-[10px] text-texto-tenue">{user.email}</div>
         </div>

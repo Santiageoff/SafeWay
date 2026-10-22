@@ -41,6 +41,16 @@ function MapController({ zones, routeData }) {
   const didFitZones = useRef(false)
   const hadRoute = useRef(false)
 
+  // Si el contenedor cambia de tamaño (en el celular, al cargar o al girar la
+  // pantalla), Leaflet no se entera y deja el mapa en blanco o cortado.
+  useEffect(() => {
+    const contenedor = map.getContainer()
+    if (typeof ResizeObserver === 'undefined') return
+    const observador = new ResizeObserver(() => map.invalidateSize())
+    observador.observe(contenedor)
+    return () => observador.disconnect()
+  }, [map])
+
   useEffect(() => {
     // Auto zoom to route when routeData exists
     if (routeData?.routeCoordinates?.length > 0) {
@@ -80,7 +90,7 @@ function ProgressBar({ percentage, color }) {
   )
 }
 
-function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], originZone = null, destinationZone = null, routeData = null, reports = [], showReports = true }) {
+function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], originZone = null, destinationZone = null, routeData = null, altRoutes = [], onSelectRoute = () => {}, reports = [], showReports = true }) {
   const safeZones = Array.isArray(zones) ? zones : []
   const safeRouteZones = Array.isArray(highlightZones) ? highlightZones : []
 
@@ -126,6 +136,17 @@ function MapView({ zones = [], selectedVehicle = 'carro', highlightZones = [], o
       />
 
       <MapController zones={validZones} routeData={routeData} />
+
+      {/* La otra opción de ruta (p. ej. la más rápida), gris punteada.
+          Tocarla la selecciona. */}
+      {altRoutes.filter(o => o.routeCoordinates?.length > 1).map(o => (
+        <Polyline
+          key={o.id}
+          positions={o.routeCoordinates}
+          pathOptions={{ color: '#6B6B6B', weight: 6, opacity: 0.85, dashArray: '8 10' }}
+          eventHandlers={{ click: () => onSelectRoute(o.id) }}
+        />
+      ))}
 
       {/* Route Polyline: azul de 5px sobre un borde negro de 11px (docs/diseno) */}
       {routeData?.routeCoordinates?.length > 1 && (

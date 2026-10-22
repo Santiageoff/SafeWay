@@ -10,6 +10,7 @@ const router = express.Router()
 const zoneService = require('../services/zoneService')
 const geocoding = require('../services/geocodingService')
 const routingService = require('../services/routingService')
+const safeRoute = require('../services/safeRouteService')
 const metrics = require('../services/metricsService')
 const profile = require('../services/proactiveService')
 const { sesionOpcional } = require('../middleware/auth')
@@ -62,10 +63,44 @@ router.post('/analyze', async (req, res, next) => {
             geocoding.geocodificar(destination, zones).catch(err => { err.lado = 'destino'; throw err })
         ])
 
-        const route = await routingService.getRoute(desde.coordinates, hasta.coordinates, vehicleType)
-        const resultado = analizarRuta({
-            zones, originZone: comoZona(desde), destinationZone: comoZona(hasta), vehicleType, route, timeWindow
+        // La ruta más segura entre la rápida, las alternativas de OSRM y
+        // desvíos alrededor de las zonas altas (issue: evitar zonas rojas).
+        // Origen y destino no cuentan para elegir: hay que llegar a ellos.
+        const extremos = [desde.locality?.id, hasta.locality?.id].filter(id => id != null)
+        const busqueda = await safeRoute.buscarRutaSegura({
+            origen: desde.coordinates, destino: hasta.coordinates, vehicleType, zones, extremos,
+            getRoutes: routingService.getRoutes
         })
+        // Si OSRM no respondió: línea recta, como siempre, y sin opciones.
+        const route = busqueda
+            ? busqueda.segura.ruta
+            : routingService.lineaRecta(desde.coordinates, hasta.coordinates, vehicleType)
+
+        const base = { zones, originZone: comoZona(desde), destinationZone: comoZona(hasta), vehicleType, timeWindow }
+        const resultado = analizarRuta({ ...base, route })
+
+        // Las opciones para que la persona escoja en el mapa. La principal
+        // (los campos de arriba) es siempre la recomendada: la más segura.
+        if (busqueda) {
+            const eleccion = safeRoute.resumirEleccion(busqueda, zones, vehicleType, extremos)
+            resultado.recommendation += eleccion.texto
+            const { texto, ...safestChoice } = eleccion
+            resultado.safestChoice = safestChoice
+            const opcion = (id, analisis, ruta) => ({
+                id,
+                routeCoordinates: ruta.routeCoordinates,
+                routeDistance: ruta.routeDistance,
+                routeDuration: ruta.routeDuration,
+                overallRisk: analisis.overallRisk,
+                insecurityPercentage: analisis.insecurityPercentage,
+                zonesInRoute: analisis.zonesInRoute.map(z => z.name)
+            })
+            resultado.routeOptions = [{ ...opcion('segura', resultado, route), recommended: true }]
+            if (busqueda.rapida !== busqueda.segura) {
+                const rapida = analizarRuta({ ...base, route: busqueda.rapida.ruta })
+                resultado.routeOptions.push({ ...opcion('rapida', rapida, busqueda.rapida.ruta), recommended: false })
+            }
+        }
 
         // Datos extra que no rompen la forma que ya usa el frontend.
         resultado.origin.locality = desde.locality?.name ?? null

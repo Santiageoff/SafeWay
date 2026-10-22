@@ -52,31 +52,52 @@ function lineaRecta(originCoords, destCoords, vehicleType) {
     }
 }
 
-async function getRoute(originCoords, destCoords, vehicleType) {
+// URL de OSRM para una ruta que pasa por `puntos` ([lat, lng], en orden).
+// Con `alternativas`, OSRM devuelve hasta 3 rutas distintas entre los dos
+// extremos (solo funciona con 2 puntos, sin desvíos).
+function urlParaPuntos(vehicleType, puntos, { alternativas = false } = {}) {
+    const base = OSRM_URL.replace('{perfil}', perfilDe(vehicleType))
+    const coords = puntos.map(p => `${p[1]},${p[0]}`).join(';')
+    const extra = alternativas && puntos.length === 2 ? '&alternatives=3' : ''
+    return `${base}/route/v1/driving/${coords}?overview=full&geometries=geojson${extra}`
+}
+
+function desdeOsrm(ruta, vehicleType) {
+    const factor = FACTOR_SOBRE_CARRO[vehicleType] ?? 1
+    return {
+        routeCoordinates: ruta.geometry.coordinates.map(c => [c[1], c[0]]),
+        routeDistance: redondear1(ruta.distance / 1000),
+        routeDuration: Math.round(ruta.duration / 60 * factor),
+        routeSource: 'osrm',
+        routeProfile: perfilDe(vehicleType)
+    }
+}
+
+// Todas las rutas que OSRM devuelva para esos puntos. Nunca lanza: si OSRM
+// falla o no responde a tiempo, devuelve [] y quien llama decide.
+async function getRoutes(puntos, vehicleType, { alternativas = false } = {}) {
     try {
-        const response = await fetch(urlDe(vehicleType, originCoords, destCoords), {
+        const response = await fetch(urlParaPuntos(vehicleType, puntos, { alternativas }), {
             headers: { 'User-Agent': 'SafeWay/1.0 (+https://github.com/Santiageoff/SafeWay)' },
             signal: AbortSignal.timeout(OSRM_TIMEOUT_MS)
         })
         const data = await response.json()
-        const ruta = data.routes && data.routes[0]
-        if (ruta) {
-            const factor = FACTOR_SOBRE_CARRO[vehicleType] ?? 1
-            return {
-                routeCoordinates: ruta.geometry.coordinates.map(c => [c[1], c[0]]),
-                routeDistance: redondear1(ruta.distance / 1000),
-                routeDuration: Math.round(ruta.duration / 60 * factor),
-                routeSource: 'osrm',
-                routeProfile: perfilDe(vehicleType)
-            }
+        if (Array.isArray(data.routes) && data.routes.length > 0) {
+            return data.routes.map(r => desdeOsrm(r, vehicleType))
         }
         console.error('[routing] OSRM no devolvió ruta:', data.code || response.status)
     } catch (err) {
-        console.error('[routing] OSRM no respondió, usando línea recta:', err.message)
+        console.error('[routing] OSRM no respondió:', err.message)
     }
+    return []
+}
 
+// La ruta principal entre dos puntos, o la línea recta si OSRM no responde.
+async function getRoute(originCoords, destCoords, vehicleType) {
+    const [ruta] = await getRoutes([originCoords, destCoords], vehicleType)
+    if (ruta) return ruta
     // Respaldo: línea recta. Se marca como tal para no presentarla como ruta real.
     return lineaRecta(originCoords, destCoords, vehicleType)
 }
 
-module.exports = { getRoute, lineaRecta, perfilDe, urlDe }
+module.exports = { getRoute, getRoutes, lineaRecta, perfilDe, urlDe, urlParaPuntos }
