@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
   getConsents, saveConsent, getPreferences, savePreferences,
-  getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory
+  getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory, getMyReports
 } from '../../services/api'
+import { typeById } from '../Alert/reportTypes'
 import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 import { WINDOW_LABELS, nombreLocalidad, formatDiasSemana, formatFechaRelativa } from '../../utils/profile'
 
@@ -64,7 +65,80 @@ function Seccion({ titulo, children }) {
   )
 }
 
-function ProfileModal({ zones = [], onClose, onChanged }) {
+// Fecha y hora del robo, como la diría una persona: "21 oct · 7:40 p. m.".
+const formatoFecha = new Intl.DateTimeFormat('es-CO', {
+  day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit'
+})
+const fechaDelReporte = (r) => {
+  const fecha = new Date(r.occurred_at || r.created_at)
+  return Number.isNaN(fecha.getTime()) ? '' : formatoFecha.format(fecha)
+}
+
+// Historial de robos que reportó la persona (GET /api/reports/mine). Va
+// aparte del resto del perfil: si falla, el perfil se sigue viendo.
+function MisReportes({ onCompleteReport }) {
+  const [reportes, setReportes] = useState(null)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelado = false
+    getMyReports()
+      .then(r => { if (!cancelado) setReportes(r.data || []) })
+      .catch(() => { if (!cancelado) setError('No pudimos cargar tus reportes.') })
+    return () => { cancelado = true }
+  }, [])
+
+  const titulo = `Tus reportes de robo${reportes?.length ? ` (${reportes.length})` : ''}`
+
+  return (
+    <Seccion titulo={titulo}>
+      {error && <p className="m-0 text-xs text-texto-tenue">{error}</p>}
+      {!error && reportes === null && <p className="m-0 text-xs text-texto-tenue">Cargando…</p>}
+      {reportes?.length === 0 && (
+        <p className="m-0 rounded-campo border-3 border-texto bg-fondo px-3 py-2.5 text-xs text-texto-tenue">
+          No has reportado robos. Si te pasa algo, usa el botón rojo del mapa: tu reporte ayuda a que otros eviten la zona.
+        </p>
+      )}
+      {reportes?.length > 0 && (
+        <ul className="m-0 list-none space-y-2 p-0">
+          {reportes.map(r => {
+            const tipo = typeById(r.type)
+            const sinDetalles = !r.type
+            return (
+              <li key={r.id} className="rounded-campo border-3 border-texto bg-fondo px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="m-0 text-xs font-semibold text-texto">
+                      {tipo ? `${tipo.icon} ${tipo.label}` : '❔ Sin tipo todavía'}
+                      {r.locality && <span className="font-normal text-texto-tenue"> · {r.locality}</span>}
+                    </p>
+                    <p className="m-0 mt-0.5 text-[11px] text-texto-tenue">
+                      {fechaDelReporte(r)}
+                      {r.station && <> · {r.station}</>}
+                    </p>
+                    {r.description && (
+                      <p className="m-0 mt-1 text-[11px] leading-relaxed text-texto">{r.description}</p>
+                    )}
+                  </div>
+                  {sinDetalles && onCompleteReport && (
+                    <button
+                      onClick={() => onCompleteReport(r)}
+                      className="shrink-0 rounded-campo border-3 border-texto bg-riesgo-medio px-2 py-1 text-[11px] font-semibold text-texto"
+                    >
+                      Completar
+                    </button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Seccion>
+  )
+}
+
+function ProfileModal({ zones = [], onClose, onChanged, onCompleteReport }) {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
@@ -167,7 +241,7 @@ function ProfileModal({ zones = [], onClose, onChanged }) {
           <button onClick={handleClose} className="p-1 text-base text-texto-tenue">✕</button>
         </div>
         <p className="mb-4 text-xs text-texto-tenue">
-          Nada de esto se guarda ni se deduce sin tu permiso. Puedes revocarlo o borrar todo cuando quieras.
+          Tus reportes y, solo con tu permiso, tus rutas y alertas. Puedes revocarlo o borrar todo cuando quieras.
         </p>
 
         {cargando && (
@@ -181,6 +255,8 @@ function ProfileModal({ zones = [], onClose, onChanged }) {
             {error}
           </div>
         )}
+
+        <MisReportes onCompleteReport={onCompleteReport} />
 
         {!cargando && consents && (
           <>

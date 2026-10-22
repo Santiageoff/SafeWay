@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { analyzeRoute } from '../../services/api'
 import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
 
 // Cuando el origen/destino fue una dirección (geocodificada con Nominatim,
@@ -11,40 +10,28 @@ function puntoLabel(punto) {
   return punto.name
 }
 
-function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector = null, selectedRouteId = 'segura', onSelectRoute = () => {} }) {
+// Nombre del medio para decir con qué se calculó el resultado.
+const MEDIO = { carro: '🚗 Carro', moto: '🏍️ Moto', bici: '🚲 Bici', 'peatón': '🚶 A pie', publico: '🚌 Público' }
+
+// El análisis (petición, resultado, error) vive en App: así hay UN solo
+// resultado para el computador y la hoja del celular, y al cambiar el medio
+// App vuelve a analizar la misma ruta. Antes el resultado se quedaba con el
+// medio anterior (escogías Bici y seguía diciendo "en carro").
+function SearchBar({
+  onAnalyze, result = null, loading = false, error = null,
+  vehicleSelector = null, selectedRouteId = 'segura', onSelectRoute = () => {}
+}) {
   const [originInput, setOriginInput] = useState('')
   const [destinationInput, setDestinationInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
+  const [validationError, setValidationError] = useState(null)
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = () => {
     if (!originInput.trim() || !destinationInput.trim()) {
-      setError('Ingresa origen y destino')
+      setValidationError('Ingresa origen y destino')
       return
     }
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      // Antes esto llamaba a http://localhost:3001 quemado, ignorando VITE_API_URL.
-      const response = await analyzeRoute(
-        originInput.trim(),
-        destinationInput.trim(),
-        selectedVehicle || 'carro'
-      )
-      const data = response.data
-      if (!data.success) {
-        setError(data.error || 'No se encontró la zona. Intenta con: Chapinero, Kennedy, Suba...')
-        return
-      }
-      setResult(data)
-      if (onRouteAnalyzed) onRouteAnalyzed(data)
-    } catch (err) {
-      setError(err.response?.data?.error || 'No se pudo conectar con el servidor')
-    } finally {
-      setLoading(false)
-    }
+    setValidationError(null)
+    onAnalyze(originInput.trim(), destinationInput.trim())
   }
 
   const handleKeyPress = (e) => {
@@ -111,9 +98,9 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
         )}
       </button>
 
-      {error && (
+      {(validationError || error) && (
         <div className="mt-3 rounded-campo border-3 border-texto bg-aviso px-3 py-2 text-xs text-texto">
-          {error}
+          {validationError || error}
         </div>
       )}
 
@@ -139,9 +126,14 @@ function SearchBar({ onRouteAnalyzed, selectedVehicle = 'carro', vehicleSelector
               {puntoLabel(result.origin)} → {puntoLabel(result.destination)}
             </p>
 
-            {result.timeWindow && (
-              <p className="mt-1 text-[11px] text-texto-tenue">
-                Evaluado para la {result.timeWindow.label}
+            <p className="mt-1 text-[11px] text-texto-tenue">
+              {MEDIO[result.vehicleType] || result.vehicleType}
+              {result.timeWindow && <> · evaluado para la {result.timeWindow.label}</>}
+            </p>
+
+            {result.vehicleType === 'publico' && (
+              <p className="mt-2 rounded-campo border-2 border-texto/30 bg-fondo px-2.5 py-1.5 text-[11px] text-texto-tenue">
+                🚌 Trazado por las vías principales, con tiempo estimado de bus (paradas y esperas). No sigue una ruta exacta de TransMilenio o SITP.
               </p>
             )}
 
