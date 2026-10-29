@@ -201,6 +201,13 @@ async function probarConsentimiento(A, B) {
         fueBloqueado(await A.db.from('data_consents').insert({
             user_id: B.id, purpose: 'alerts', granted: true
         }).select()))
+
+    // Migración 20261029180000: has_consent vive en `private` y la API no la
+    // expone; handle_new_user no la ejecuta nadie a mano.
+    check('B NO puede preguntar por el consentimiento de A (has_consent privada)',
+        Boolean((await B.db.rpc('has_consent', { p_user: A.id, p_purpose: 'route_history' })).error))
+    check('NADIE puede ejecutar handle_new_user por la API',
+        Boolean((await B.db.rpc('handle_new_user')).error))
 }
 
 async function probarHistorial(A, B) {
