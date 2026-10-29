@@ -15,7 +15,11 @@ function traducirError(mensaje = '') {
   if (m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos'
   if (m.includes('email not confirmed')) return 'Falta confirmar tu correo. Revisa tu bandeja, y el spam.'
   if (m.includes('user already registered')) return 'Ya existe una cuenta con ese correo'
-  if (m.includes('password should be at least')) return 'La contraseña debe tener al menos 6 caracteres'
+  if (m.includes('password should be at least')) return 'La contraseña debe tener al menos 8 caracteres'
+  // Requisitos de Supabase (minúsculas, mayúsculas, números y símbolos).
+  if (m.includes('password should contain')) return 'La contraseña necesita al menos una minúscula, una mayúscula, un número y un símbolo.'
+  if (m.includes('weak') && m.includes('password')) return 'Esa contraseña es muy débil o ya apareció en filtraciones. Escoge otra.'
+  if (m.includes('should be different from the old')) return 'La contraseña nueva debe ser distinta de la anterior'
   if (m.includes('unable to validate email')) return 'Ese correo no parece válido'
   if (m.includes('for security purposes')) return 'Espera unos segundos antes de volver a intentarlo'
   if (m.includes('email rate limit')) return 'Demasiados intentos. Espera un momento.'

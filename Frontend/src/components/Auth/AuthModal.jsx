@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/useAuth'
+import { useCerrarConFondo } from '../../hooks/useCerrarConFondo'
+import ReglasPassword from './ReglasPassword'
+import { cumpleReglas } from '../../utils/reglasPassword'
 
 // Registro, inicio de sesion y recuperacion de contrasena, en una sola ventana.
 //
@@ -7,6 +10,8 @@ import { useAuth } from '../../context/useAuth'
 // alguien pulse "entrar" a que le acaben de robar y el boton le pida una
 // cuenta: en ese caso hay que decirlo de frente, y recordarle el 123.
 
+// Sin sesión: el registro pide nombre de usuario opcional; si queda vacío,
+// el perfil usa la parte del correo antes de la arroba (trigger handle_new_user).
 const MODOS = { entrar: 'entrar', registro: 'registro', olvide: 'olvide' }
 
 const campo = 'mb-3.5 w-full rounded-campo border-3 border-texto bg-superficie px-3 py-2.5 text-sm text-texto'
@@ -23,6 +28,7 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
   const [aviso, setAviso] = useState(null)
+  const fondo = useCerrarConFondo(onClose)
 
   const enviar = async (e) => {
     e.preventDefault()
@@ -66,7 +72,7 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
   return (
     <div
       className="fixed inset-0 z-[3000] flex items-center justify-center bg-texto/60 p-5"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+      {...fondo}
     >
       <div className="w-full max-w-[380px] rounded-tarjeta border-3 border-texto bg-superficie p-5 shadow-dura">
         <div className="flex items-center justify-between">
@@ -90,10 +96,11 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
 
           {modo === MODOS.registro && (
             <>
-              <label className={etiqueta}>¿Cómo te llamamos? (opcional)</label>
+              <label className={etiqueta}>Nombre de usuario (opcional)</label>
               <input
                 value={nombre} onChange={(e) => setNombre(e.target.value)}
-                placeholder="Santi" className={campo} maxLength={60}
+                autoComplete="nickname"
+                placeholder="Ej: caminante_bogota" className={campo} maxLength={60}
               />
             </>
           )}
@@ -105,8 +112,9 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
                 type="password" required minLength={8} value={password}
                 autoComplete={modo === MODOS.registro ? 'new-password' : 'current-password'}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres" className={campo}
+                placeholder={modo === MODOS.registro ? 'Crea una contraseña segura' : 'Tu contraseña'} className={campo}
               />
+              {modo === MODOS.registro && <ReglasPassword password={password} />}
             </>
           )}
 
@@ -115,7 +123,7 @@ function AuthModal({ motivo = null, onClose, modoInicial = MODOS.entrar }) {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || (modo === MODOS.registro && !cumpleReglas(password))}
             className="mt-4 min-h-[44px] w-full rounded-boton border-3 border-texto bg-acento py-3 font-display text-sm text-white shadow-dura transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-dura-chica disabled:opacity-60"
           >
             {enviando ? 'UN MOMENTO…'

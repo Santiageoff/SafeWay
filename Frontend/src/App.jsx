@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { useCerrarConFondo } from './hooks/useCerrarConFondo'
 import MapView from './components/Map/MapView'
 import SearchBar from './components/Search/SearchBar'
 import VehicleSelector from './components/Search/VehicleSelector'
@@ -35,6 +36,7 @@ function App() {
   const [destinationZone, setDestinationZone] = useState(null)
   const [routeData, setRouteData] = useState(null)
   const [routeSheetOpen, setRouteSheetOpen] = useState(false)
+  const fondoHoja = useCerrarConFondo(() => setRouteSheetOpen(false))
   // Ruta que se ve en el mapa: 'segura' (la recomendada) o 'rapida'.
   const [selectedRouteId, setSelectedRouteId] = useState('segura')
   // El análisis vive aquí (no en SearchBar) para poder repetirlo al cambiar
@@ -436,7 +438,7 @@ function App() {
       {(
         <div
           className={`fixed inset-0 z-[1500] items-end justify-center bg-texto/60 md:hidden ${routeSheetOpen ? 'flex' : 'hidden'}`}
-          onClick={(e) => { if (e.target === e.currentTarget) setRouteSheetOpen(false) }}
+          {...fondoHoja}
         >
           <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-tarjeta border-3 border-b-0 border-texto bg-fondo p-4">
             <div className="mb-2 flex items-center justify-between">
