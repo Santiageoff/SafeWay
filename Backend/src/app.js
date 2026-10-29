@@ -10,9 +10,18 @@ const metricsRoutes = require('./routes/metrics.routes')
 const sourcesRoutes = require('./routes/sources.routes')
 const reportStore = require('./services/reportStore')
 const supabase = require('./services/supabaseService')
+const { encabezadosDeSeguridad } = require('./middleware/seguridad')
 
 const app = express()
 const PORT = process.env.PORT || 3001
+
+// No anunciar que es Express (le ahorra pasos a quien busca vulnerabilidades
+// conocidas de una versión concreta).
+app.disable('x-powered-by')
+// Render pone un proxy delante: sin esto, req.ip sería siempre la IP del
+// proxy y el límite de peticiones (paso 3) trataría a todos como uno solo.
+app.set('trust proxy', 1)
+app.use(encabezadosDeSeguridad)
 
 // CORS cerrado por lista blanca. Antes se respondia Access-Control-Allow-Origin: *
 // a cualquier origen, asi que cualquier web podia llamar a esta API desde el
