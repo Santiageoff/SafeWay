@@ -335,3 +335,22 @@ en `route_queries` (localidad de origen y destino, medio, nivel y hora; nunca co
 dirección escrita) y corre el motor. Sin consentimiento `route_history` la base rechaza el guardado
 (RLS) y no pasa nada más. La sesión se verifica en paralelo con el análisis, así que no lo hace más
 lento. Un token inválido no da error: la persona se trata como visitante.
+
+## Límite de peticiones
+
+Cada IP tiene un límite por minuto (ventana fija). Al pasarlo, la API responde
+**429** con `Retry-After` (segundos) y este cuerpo:
+
+```json
+{ "success": false, "code": "rate_limited", "error": "Analizaste muchas rutas seguidas. Intenta de nuevo en 42 s." }
+```
+
+| Alcance | Límite por defecto | Variable de entorno |
+|---|---|---|
+| Toda la API (`/api/*`) | 120 por minuto | `RATE_LIMIT_API_PER_MIN` |
+| `POST /api/route/analyze` | 20 por minuto | `RATE_LIMIT_ANALYZE_PER_MIN` |
+| Escrituras en `/api/reports` y `/api/profile` | 30 por minuto | `RATE_LIMIT_WRITES_PER_MIN` |
+
+`/health` no tiene límite. Todas las respuestas traen `RateLimit-Limit`,
+`RateLimit-Remaining` y `RateLimit-Reset`. Es aparte del límite de 5 reportes
+en 24 horas por cuenta.

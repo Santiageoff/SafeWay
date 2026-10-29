@@ -11,6 +11,7 @@ const sourcesRoutes = require('./routes/sources.routes')
 const reportStore = require('./services/reportStore')
 const supabase = require('./services/supabaseService')
 const { encabezadosDeSeguridad } = require('./middleware/seguridad')
+const { limiteGeneral, limiteAnalisis, soloEscrituras } = require('./middleware/limitePeticiones')
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -51,6 +52,12 @@ app.use(cors({
 // Limite explicito de cuerpo. El descriptivo por defecto de Express es 100kb;
 // para lo que manda esta API (un punto y unos campos cortos) 32kb sobra.
 app.use(express.json({ limit: '32kb' }))
+
+// Límite de peticiones por IP (paso 3). /health queda fuera: lo consulta el
+// workflow que mantiene despierto a Render.
+app.use('/api', limiteGeneral)
+app.use('/api/route/analyze', limiteAnalisis)
+app.use(['/api/reports', '/api/profile'], soloEscrituras)
 
 app.use('/api/risk', riskRoutes)
 app.use('/api/profile', profileRoutes)

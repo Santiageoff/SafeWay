@@ -32,3 +32,38 @@ test('los errores también llevan los encabezados de seguridad', async () => {
     assert.equal(res.status, 400)
     revisarEncabezados(res)
 })
+
+// Paso 3: límite de peticiones por IP.
+test('analizar ruta responde 429 al pasar el límite por minuto', async () => {
+    const limitada = await levantarApi({ ...SUPABASE_CAIDO, RATE_LIMIT_ANALYZE_PER_MIN: '3' })
+    try {
+        const estados = []
+        for (let i = 0; i < 4; i++) estados.push((await limitada.post('/api/route/analyze', {})).status)
+        assert.deepEqual(estados.slice(0, 3), [400, 400, 400])
+        assert.equal(estados[3], 429)
+
+        const res = await limitada.post('/api/route/analyze', {})
+        assert.equal(res.status, 429)
+        assert.ok(Number(res.headers.get('retry-after')) > 0)
+        const cuerpo = await res.json()
+        assert.equal(cuerpo.code, 'rate_limited')
+        assert.match(cuerpo.error, /Intenta de nuevo/)
+
+        // El resto de la API sigue respondiendo: el límite es por ruta.
+        assert.equal((await limitada.get('/api/risk/zones')).status, 200)
+    } finally {
+        await limitada.cerrar()
+    }
+})
+
+test('/health no tiene límite (lo usa el workflow que mantiene despierto a Render)', async () => {
+    const limitada = await levantarApi({ ...SUPABASE_CAIDO, RATE_LIMIT_API_PER_MIN: '2' })
+    try {
+        for (let i = 0; i < 4; i++) assert.equal((await limitada.get('/health')).status, 200)
+        assert.equal((await limitada.get('/api/risk/zones')).status, 200)
+        assert.equal((await limitada.get('/api/risk/zones')).status, 200)
+        assert.equal((await limitada.get('/api/risk/zones')).status, 429)
+    } finally {
+        await limitada.cerrar()
+    }
+})

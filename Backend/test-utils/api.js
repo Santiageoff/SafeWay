@@ -27,7 +27,13 @@ async function levantarApi(env = {}) {
     const port = await puertoLibre()
     const proc = spawn(process.execPath, ['src/app.js'], {
         cwd: BACKEND_DIR,
-        env: { ...process.env, SUPABASE_SECRET_KEY: '', ...env, PORT: String(port) },
+        // Límites altos por defecto: las pruebas hacen muchas consultas seguidas.
+        // La prueba del límite (seguridad.test.js) los baja a propósito.
+        env: {
+            ...process.env, SUPABASE_SECRET_KEY: '',
+            RATE_LIMIT_API_PER_MIN: '100000', RATE_LIMIT_ANALYZE_PER_MIN: '100000', RATE_LIMIT_WRITES_PER_MIN: '100000',
+            ...env, PORT: String(port)
+        },
         stdio: ['ignore', 'pipe', 'pipe']
     })
 
