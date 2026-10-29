@@ -144,6 +144,16 @@ async function probarAnonimo() {
     check('la vista SI trae lo que el mapa necesita',
         'lat' in fila && 'lng' in fila && 'locality' in fila)
 
+    // Migración 20261029: las vistas corren con los permisos de quien consulta
+    // (security_invoker) y el salto de RLS vive en private.reportes_publicos(),
+    // que la API no expone.
+    const transporte = await anon.from('transit_incident_counts').select('locality_id, count').limit(5)
+    check('SI lee los conteos de transporte público', !transporte.error, transporte.error?.message)
+    check('NO puede llamar la función privada por la API',
+        Boolean((await anon.rpc('reportes_publicos')).error))
+    check('NO puede leer reports directo saltándose la vista',
+        fueBloqueado(await anon.from('reports').select('description, user_id').limit(1)))
+
     for (const tabla of ['profiles', 'data_consents', 'route_queries', 'habitual_routes', 'alert_preferences', 'risk_alerts']) {
         check('NO lee ' + tabla, fueBloqueado(await anon.from(tabla).select('*').limit(1)))
     }
