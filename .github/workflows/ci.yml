@@ -39,6 +39,8 @@ jobs:
           cache: npm
           cache-dependency-path: Backend/package-lock.json
       - run: npm ci
+      # Vulnerabilidades conocidas (altas o críticas) en lo que llega a producción.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm test
 
   frontend:
@@ -56,5 +58,6 @@ jobs:
           cache: npm
           cache-dependency-path: Frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run build
