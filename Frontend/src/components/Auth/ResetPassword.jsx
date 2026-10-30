@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/useAuth'
+import ReglasPassword from './ReglasPassword'
+import { cumpleReglas } from '../../utils/reglasPassword'
 
 // Se muestra cuando alguien llega desde el enlace de "olvide mi contrasena".
 // Supabase ya le dejo con sesion iniciada al abrir el enlace, asi que aqui solo
@@ -45,8 +47,9 @@ function ResetPassword() {
           <input
             type="password" required minLength={8} value={password}
             autoComplete="new-password" onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mínimo 8 caracteres" className={campo}
+            placeholder="Crea una contraseña segura" className={campo}
           />
+          <ReglasPassword password={password} />
 
           <label className={etiqueta}>Repítela</label>
           <input
@@ -63,7 +66,7 @@ function ResetPassword() {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || !cumpleReglas(password)}
             className="mt-4 min-h-[44px] w-full rounded-boton border-3 border-texto bg-acento py-3 font-display text-sm text-white shadow-dura disabled:opacity-60"
           >
             {enviando ? 'GUARDANDO…' : 'GUARDAR Y CONTINUAR'}

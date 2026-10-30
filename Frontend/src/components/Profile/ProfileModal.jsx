@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useCerrarConFondo } from '../../hooks/useCerrarConFondo'
 import {
   getConsents, saveConsent, getPreferences, savePreferences,
   getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory, getMyReports
@@ -297,6 +298,7 @@ function ProfileModal({ zones = [], onClose, onChanged, onCompleteReport }) {
   }
 
   const handleClose = () => { onChanged?.(); onClose?.() }
+  const fondo = useCerrarConFondo(handleClose)
 
   const rutaLabel = (r) =>
     `${nombreLocalidad(zonesById, r.origin_locality_id)} → ${nombreLocalidad(zonesById, r.destination_locality_id)}`
@@ -304,7 +306,7 @@ function ProfileModal({ zones = [], onClose, onChanged, onCompleteReport }) {
   return (
     <div
       className="fixed inset-0 z-[3000] flex items-center justify-center bg-texto/60 p-5"
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
+      {...fondo}
     >
       <div className="max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-tarjeta border-3 border-texto bg-superficie p-5 shadow-dura">
         <div className="mb-1 flex items-center justify-between">

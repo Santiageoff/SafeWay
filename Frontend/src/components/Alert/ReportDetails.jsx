@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useCerrarConFondo } from '../../hooks/useCerrarConFondo'
 import { MapContainer, TileLayer, CircleMarker, useMapEvents, useMap } from 'react-leaflet'
 import { REPORT_TYPES } from './reportTypes'
 import { createReport, updateReport } from '../../services/api'
@@ -36,6 +37,7 @@ const inputClass = 'mb-3.5 w-full rounded-campo border-3 border-texto bg-superfi
 const labelClass = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-texto-tenue'
 
 function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, onClose }) {
+  const fondo = useCerrarConFondo(onClose)
   const isNew = !report
 
   const [type, setType] = useState(report?.type || null)
@@ -103,7 +105,7 @@ function ReportDetails({ report, zones = [], defaultLocation = null, onSaved, on
   return (
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center bg-texto/60 p-5"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+      {...fondo}
     >
       <div className="w-full max-w-[440px] max-h-[90vh] overflow-y-auto rounded-tarjeta border-3 border-texto bg-superficie p-5 shadow-dura">
         <div className="mb-1 flex items-center justify-between">
