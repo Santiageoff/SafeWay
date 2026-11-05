@@ -60,9 +60,17 @@ function guardarEnCache(clave, valor) {
 // ---------- 1 petición por segundo ----------
 
 let siguienteTurno = 0
+// Máximo que alguien espera en la cola antes de recibir un 503. Sin tope, 20
+// análisis con direcciones distintas dejaban a todos los demás esperando ~40 s
+// (más que los 10 s del frontend). Auditoría 2026-11.
+const MAX_ESPERA_MS = Number(process.env.NOMINATIM_MAX_WAIT_MS) || 4000
+
 async function esperarTurno() {
     const ahora = Date.now()
     const turno = Math.max(ahora, siguienteTurno)
+    if (turno - ahora > MAX_ESPERA_MS) {
+        throw new GeocodingError('El servicio de direcciones está ocupado. Intenta en unos segundos o usa el nombre de una localidad.', 503, 'geocodificacion_ocupada')
+    }
     siguienteTurno = turno + INTERVALO_MS
     if (turno > ahora) await new Promise(r => setTimeout(r, turno - ahora))
 }
@@ -81,7 +89,26 @@ function porLocalidad(texto, zonas) {
 
 // ---------- Nominatim ----------
 
-async function consultarNominatim(texto) {
+// Cada cliente (IP) puede tener como mucho 2 consultas esperando turno: así
+// uno solo no acapara la cola de toda la app y los demás siguen entrando.
+const MAX_PENDIENTES_POR_CLIENTE = 2
+const pendientes = new Map()
+
+async function consultarNominatim(texto, cliente = 'anonimo') {
+    const enCola = pendientes.get(cliente) || 0
+    if (enCola >= MAX_PENDIENTES_POR_CLIENTE) {
+        throw new GeocodingError('Tienes otras búsquedas de direcciones en curso. Espera unos segundos.', 429, 'geocodificacion_ocupada')
+    }
+    pendientes.set(cliente, enCola + 1)
+    try {
+        return await consultarNominatimEnCola(texto)
+    } finally {
+        const quedan = (pendientes.get(cliente) || 1) - 1
+        if (quedan > 0) pendientes.set(cliente, quedan); else pendientes.delete(cliente)
+    }
+}
+
+async function consultarNominatimEnCola(texto) {
     // Se le agrega la ciudad para que "Calle 72 # 7-30" no acabe en otro municipio.
     const q = /bogot/i.test(texto) ? texto : `${texto}, Bogotá`
     const params = new URLSearchParams({
@@ -117,7 +144,7 @@ async function consultarNominatim(texto) {
 // Devuelve { name, coordinates: [lat, lng], locality, source } o lanza
 // GeocodingError (404 si no se encuentra, 503 si Nominatim no responde).
 // `zonas` son las 20 localidades (para el atajo y para asignar la localidad).
-async function geocodificar(texto, zonas) {
+async function geocodificar(texto, zonas, cliente) {
     if (typeof texto !== 'string' || texto.trim() === '') {
         throw new GeocodingError('La dirección está vacía', 400, 'direccion_vacia')
     }
@@ -131,7 +158,7 @@ async function geocodificar(texto, zonas) {
     const clave = normalizar(texto)
     let punto = desdeCache(clave)
     if (punto === undefined) {
-        punto = await consultarNominatim(texto.trim())
+        punto = await consultarNominatim(texto.trim(), cliente)
         guardarEnCache(clave, punto)   // también se guarda "no encontrado"
     }
 
@@ -146,6 +173,6 @@ async function geocodificar(texto, zonas) {
 }
 
 // Solo para pruebas.
-function _reiniciar() { cache.clear(); siguienteTurno = 0 }
+function _reiniciar() { cache.clear(); pendientes.clear(); siguienteTurno = 0 }
 
 module.exports = { geocodificar, GeocodingError, _reiniciar }

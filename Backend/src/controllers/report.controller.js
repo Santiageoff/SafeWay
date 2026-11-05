@@ -18,6 +18,15 @@ function handleError(res, err) {
         return res.status(err.statusCode).json({ success: false, code: err.code, error: err.message })
     }
 
+    // Reglas que ahora también aplica la base (migración 20261105120000).
+    if (err instanceof store.StoreError) {
+        const porCodigo = { SW429: 429, SW409: 409, SW400: 400, 23514: 400, '22P02': 404 }
+        const status = porCodigo[err.codigoPg]
+        if (status) {
+            return res.status(status).json({ success: false, code: 'regla_de_reporte', error: err.mensajeUsuario })
+        }
+    }
+
     // Un fallo de permisos aquí significa que las políticas de RLS y el código
     // no están de acuerdo. Es un error de configuración y hay que verlo, no
     // disimularlo con un mensaje genérico.

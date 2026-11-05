@@ -313,8 +313,51 @@ async function probarAlertas(A, B) {
         fueBloqueado(await B.db.from('risk_alerts').update({ seen_at: new Date().toISOString() }).eq('id', alerta.data?.id).select()))
 }
 
+async function probarReglasDeReportes(B) {
+    console.log('\n7. reports - la base aplica las reglas aunque se salte el backend')
+    const fila = (o = {}) => ({ ...reporteDe(B.id), ...o })
+    const insertar = (o) => B.db.from('reports').insert(fila(o)).select().maybeSingle()
+
+    check('NO acepta un punto fuera de Bogotá',
+        fueBloqueado(await insertar({ lat: 40.7128, lng: -74.006 })))
+    check('NO acepta un robo en el futuro',
+        fueBloqueado(await insertar({ occurred_at: '2031-01-01T00:00:00Z' })))
+    check('NO acepta un rango horario de más de 24 h',
+        fueBloqueado(await insertar({ occurred_end: new Date(Date.now() + 1000 * 3600 * 24 * 365).toISOString() })))
+    check('NO acepta un tipo inventado', fueBloqueado(await insertar({ type: 'lo-que-sea' })))
+
+    const loc = await insertar({ locality: 'Chapinero', locality_id: 2, created_at: '2020-01-01T00:00:00Z' })
+    check('la localidad sale del GPS, no del cliente', loc.data?.locality_id === KENNEDY.locality_id,
+        loc.error?.message || 'locality_id = ' + loc.data?.locality_id)
+    check('created_at lo pone la base', loc.data && loc.data.created_at.slice(0, 4) !== '2020')
+
+    const casa = await insertar({ type: 'vivienda', precision: 'exact', lat: 4.6283117, lng: -74.1662044 })
+    const enRejilla = (v) => Math.abs(v / 0.003 - Math.round(v / 0.003)) < 1e-6
+    check('vivienda se guarda difuminada aunque pidan "exact"',
+        casa.data?.precision === 'approx' && enRejilla(casa.data.lat) && enRejilla(casa.data.lng),
+        casa.error?.message || JSON.stringify({ lat: casa.data?.lat, precision: casa.data?.precision }))
+
+    const cancelado = await B.db.from('reports').update({ status: 'cancelled' }).eq('id', loc.data?.id).select()
+    check('SI puede deshacer dentro de 30 s', !fueBloqueado(cancelado), cancelado.error?.message)
+    check('NO puede "des-cancelar"',
+        fueBloqueado(await B.db.from('reports').update({ status: 'active' }).eq('id', loc.data?.id).select()))
+
+    // Ya lleva 2 reportes hoy (loc y casa): 4 más lo pasarían de 5.
+    const lote = Array.from({ length: 4 }, () => fila({ id: randomUUID() }))
+    check('NO pasa de 5 reportes en 24 h (ni en lote)',
+        fueBloqueado(await B.db.from('reports').insert(lote).select()))
+
+    const publica = await anon.from('public_reports').select('lat, lng').limit(20)
+    const decimales = (v) => (String(v).split('.')[1] || '').length
+    check('la vista pública trae coordenadas de máximo 3 decimales',
+        !publica.error && (publica.data || []).every(f => decimales(f.lat) <= 3 && decimales(f.lng) <= 3),
+        publica.error?.message)
+
+    await B.db.from('reports').delete().eq('user_id', B.id)
+}
+
 async function probarBorradoDeCuenta(A) {
-    console.log('\n7. borrar la cuenta')
+    console.log('\n8. borrar la cuenta')
 
     const reporte = await A.db.from('reports').insert(reporteDe(A.id)).select().single()
     const idReporte = reporte.data?.id
@@ -369,6 +412,7 @@ async function main() {
         await probarConsentimiento(A, B)
         await probarHistorial(A, B)
         await probarAlertas(A, B)
+        await probarReglasDeReportes(B)
         await probarBorradoDeCuenta(A)
         A = null  // ya se borro dentro de la prueba
     } catch (err) {

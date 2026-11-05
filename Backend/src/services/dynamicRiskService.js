@@ -101,7 +101,9 @@ function windowWeight(cluster, targetWindow) {
     }
 
     const end = new Date(cluster.occurred_end)
-    const hoursSpanned = Math.max(1, Math.ceil((end - start) / (60 * 60 * 1000)))
+    // Tope de 24 h: aunque llegara un rango enorme (filas viejas), el costo por
+    // reporte queda acotado y una sola fila no puede congelar la API.
+    const hoursSpanned = Math.min(24, Math.max(1, Math.ceil((end - start) / (60 * 60 * 1000))))
 
     let matchingHours = 0
     for (let i = 0; i < hoursSpanned; i++) {
