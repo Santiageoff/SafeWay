@@ -11,6 +11,11 @@ const { requireAuth } = require('../middleware/auth')
 router.get('/', controller.list)
 
 // Todo lo demás toca datos personales y exige sesión.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+router.param('id', (req, res, next, id) => UUID.test(id)
+    ? next()
+    : res.status(404).json({ success: false, code: 'not_found', error: 'Reporte no encontrado' }))
+
 router.get('/mine', requireAuth, controller.mine)
 router.post('/', requireAuth, controller.create)
 router.patch('/:id', requireAuth, controller.complete)

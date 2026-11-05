@@ -59,8 +59,8 @@ router.post('/analyze', async (req, res, next) => {
         // En paralelo: el turno de 1 petición por segundo a Nominatim lo
         // administra el propio servicio.
         const [desde, hasta] = await Promise.all([
-            geocoding.geocodificar(origin, zones).catch(err => { err.lado = 'origen'; throw err }),
-            geocoding.geocodificar(destination, zones).catch(err => { err.lado = 'destino'; throw err })
+            geocoding.geocodificar(origin, zones, req.ip).catch(err => { err.lado = 'origen'; throw err }),
+            geocoding.geocodificar(destination, zones, req.ip).catch(err => { err.lado = 'destino'; throw err })
         ])
 
         // La ruta más segura entre la rápida, las alternativas de OSRM y

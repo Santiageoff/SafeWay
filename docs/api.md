@@ -336,6 +336,21 @@ dirección escrita) y corre el motor. Sin consentimiento `route_history` la base
 (RLS) y no pasa nada más. La sesión se verifica en paralelo con el análisis, así que no lo hace más
 lento. Un token inválido no da error: la persona se trata como visitante.
 
+## Reglas de los reportes en la base
+
+Desde la migración `20261105120000_reglas_de_reportes_en_la_base.sql`, Postgres
+aplica las reglas de `reports` a cualquier escritura de un usuario, venga del
+backend o directo a Supabase. Si se rompe una, `POST`/`PATCH /api/reports`
+responden con `code: "regla_de_reporte"`:
+
+| HTTP | Cuándo |
+|---|---|
+| 400 | Fuera de Bogotá, tipo inválido, textos largos, robo en el futuro, rango horario de más de 24 h |
+| 409 | El reporte está cancelado o ya pasaron los 30 s para deshacer |
+| 429 | Ya hizo 5 reportes en 24 horas (también si llegan varios a la vez) |
+
+`PATCH` y `DELETE /api/reports/:id` responden 404 si el id no es un UUID.
+
 ## Límite de peticiones
 
 Cada IP tiene un límite por minuto (ventana fija). Al pasarlo, la API responde

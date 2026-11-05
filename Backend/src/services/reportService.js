@@ -39,6 +39,11 @@ const MAX_DESCRIPTION_LENGTH = 500
 const MAX_STATION_LENGTH = 120
 
 const MAX_REPORTS_PER_DAY = 5
+// Un rango horario sirve para "entre las 6am y las 2pm"; más de un día no
+// describe un robo y, sin tope, hacía que windowWeight recorriera millones de
+// horas en cada carga del mapa (auditoría 2026-11). Mismo tope en la base.
+const MAX_RANGE_HOURS = 24
+const MAX_PAST_DAYS = 365
 const UNDO_WINDOW_SECONDS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -83,6 +88,17 @@ function blurCoordinate(value) {
     return Math.round(value / PRIVACY_GRID_DEGREES) * PRIVACY_GRID_DEGREES
 }
 
+function assertRangoCorto(inicio, fin) {
+    if (fin.getTime() - inicio.getTime() > MAX_RANGE_HOURS * 60 * 60 * 1000) {
+        throw new ReportError(`El rango horario no puede pasar de ${MAX_RANGE_HOURS} horas`)
+    }
+    if (fin.getTime() > Date.now() + 60000) {
+        throw new ReportError('La hora final del rango no puede estar en el futuro')
+    }
+}
+
+const esCoordenada = (v) => typeof v === 'number' && Number.isFinite(v)
+
 // Valida y normaliza lo que llega del navegador. Nunca confiar en el cliente:
 // el `locality` se DERIVA del GPS, no se acepta del request.
 function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, description, userId }) {
@@ -107,6 +123,9 @@ function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, descrip
     if (occurred.getTime() > now.getTime() + 60000) {
         throw new ReportError('No se puede reportar un robo en el futuro')
     }
+    if (occurred.getTime() < now.getTime() - MAX_PAST_DAYS * DAY_MS) {
+        throw new ReportError('La fecha del hecho es demasiado antigua')
+    }
 
     // Rango horario: el caso de la moto parqueada, donde solo se sabe entre
     // qué horas pudo pasar.
@@ -117,6 +136,7 @@ function buildReport({ lat, lng, type, occurredAt, occurredEnd, station, descrip
         if (end.getTime() < occurred.getTime()) {
             throw new ReportError('La hora final del rango no puede ser anterior a la inicial')
         }
+        assertRangoCorto(occurred, end)
     }
 
     const isHome = type === 'vivienda'
@@ -225,13 +245,17 @@ async function completeReport(client, userId, id, patch) {
             if (end.getTime() < start.getTime()) {
                 throw new ReportError('La hora final del rango no puede ser anterior a la inicial')
             }
+            assertRangoCorto(start, end)
             updates.occurred_end = end.toISOString()
         }
     }
 
     // Corregir el lugar (el caso del cosquilleo en TransMilenio: se reporta
     // desde la casa y hay que marcar dónde fue de verdad).
-    if (patch.lat !== undefined && patch.lng !== undefined) {
+    if (patch.lat !== undefined || patch.lng !== undefined) {
+        if (!esCoordenada(patch.lat) || !esCoordenada(patch.lng)) {
+            throw new ReportError('Se requiere una ubicación válida (lat, lng)')
+        }
         if (!isInsideBogota(patch.lat, patch.lng)) {
             throw new ReportError('La ubicación está fuera de Bogotá D.C.', 400, 'outside_bogota')
         }

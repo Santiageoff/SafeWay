@@ -24,6 +24,9 @@ class StoreError extends Error {
     constructor(message, codigoPg) {
         super(message)
         this.codigoPg = codigoPg
+        // Mensaje apto para el usuario: el de nuestras reglas (SW...) se puede
+        // mostrar; el de Postgres (nombres de restricciones) no.
+        this.mensajeUsuario = /^SW/.test(String(codigoPg)) ? message.split(': ').slice(1).join(': ') : 'Datos del reporte no válidos'
         // 42501 = permiso denegado, 42P01 = la relacion no existe.
         // Son errores de configuracion, no del usuario: hay que verlos, no
         // disimularlos con un respaldo.
@@ -90,9 +93,15 @@ async function listPublic(sinceIso) {
     const { data, error } = await client
         .from(VISTA_PUBLICA).select('*')
         .gte('occurred_at', sinceIso)
+        // Sin tope superior, 1000 filas "del futuro" ocupaban todo el cupo de
+        // PostgREST (máx. 1000 filas) y sacaban del mapa los reportes reales.
+        .lte('occurred_at', new Date(Date.now() + 60000).toISOString())
         .order('occurred_at', { ascending: false })
         .abortSignal(supabase.limiteDeEspera())
     if (error) lanzar(error, 'no se pudo leer la capa de reportes')
+    if ((data || []).length >= 1000) {
+        console.warn('[reports] la capa pública llegó a 1000 filas: hay que paginar o agregar en SQL')
+    }
     return data || []
 }
 
