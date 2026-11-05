@@ -20,7 +20,7 @@ gracias por avisar con responsabilidad.
 | API | CORS por lista blanca, límite de peticiones por IP, cuerpo máximo de 32 kB, errores 500 sin detalles internos |
 | Base de datos | RLS en todas las tablas, vistas con `security_invoker`, funciones privilegiadas en un esquema que la API no expone. Las reglas de los reportes (5 al día, dentro de Bogotá, localidad derivada del GPS, vivienda difuminada, rangos de máximo 24 h, deshacer en 30 s) las aplica la propia base con un trigger, aunque alguien se salte el backend. `npm run verify:rls` lo comprueba |
 | Cuentas | Confirmación de correo, contraseñas con minúsculas, mayúsculas, números y símbolos, límite de intentos de Supabase Auth |
-| Privacidad | Nunca se guarda la dirección escrita; robos a vivienda difuminados ~300 m; el mapa público solo muestra 30 días, con coordenadas a ~110 m y horas en bloques de 15 min; borrar el historial de rutas desde el perfil |
+| Privacidad | Nunca se guarda la dirección escrita; robos a vivienda difuminados ~300 m; el mapa público solo muestra 30 días, con coordenadas a ~110 m y horas en bloques de 15 min; desde el perfil se puede borrar el historial de rutas, cada reporte propio y la cuenta entera (los reportes que queden se anonimizan y pierden el texto); al deshacer un reporte se borra lo que la persona escribió |
 | Dependencias | Dependabot semanal y `npm audit` de dependencias de producción en cada PR |
 | Secretos | Los `.env` no se suben; la llave secreta de Supabase solo vive en Render y en el `.env` local |
 

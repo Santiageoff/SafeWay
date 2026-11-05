@@ -53,6 +53,11 @@ async function update(client, id, patch) {
     return data
 }
 
+async function remove(client, id) {
+    const { error } = await client.from(TABLA).delete().eq('id', id)
+    if (error) lanzar(error, 'no se pudo borrar el reporte')
+}
+
 // ---------- Lectura de lo propio ----------
 
 // RLS ya limita a las filas del usuario; el .eq no sobra, hace explicita la
@@ -113,6 +118,6 @@ function status() {
 }
 
 module.exports = {
-    insert, update, findById, listByUser, countByUser, listPublic,
+    insert, update, remove, findById, listByUser, countByUser, listPublic,
     status, StoreError
 }

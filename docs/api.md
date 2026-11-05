@@ -351,6 +351,16 @@ responden con `code: "regla_de_reporte"`:
 
 `PATCH` y `DELETE /api/reports/:id` responden 404 si el id no es un UUID.
 
+## Derecho de supresión (Ley 1581)
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `DELETE` | `/api/reports/:id/definitivo` | Borra para siempre un reporte propio (404 si no es suyo) |
+| `DELETE` | `/api/profile/account` | Borra la cuenta: perfil, permisos, historial, rutas, preferencias y alertas. Los reportes que queden se anonimizan y pierden la descripción |
+
+`DELETE /api/reports/:id` (deshacer en 30 s) sigue igual, pero ahora también borra la
+descripción y la estación del reporte cancelado.
+
 ## Límite de peticiones
 
 Cada IP tiene un límite por minuto (ventana fija). Al pasarlo, la API responde

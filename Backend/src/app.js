@@ -21,7 +21,9 @@ const PORT = process.env.PORT || 3001
 app.disable('x-powered-by')
 // Render pone un proxy delante: sin esto, req.ip sería siempre la IP del
 // proxy y el límite de peticiones (paso 3) trataría a todos como uno solo.
-app.set('trust proxy', 1)
+// Cuántos proxies hay delante. En Render puede ser más de uno: se ajusta con
+// TRUST_PROXY sin tocar código (ver docs/despliegue-backend.md).
+app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1)
 app.use(encabezadosDeSeguridad)
 
 // CORS cerrado por lista blanca. Antes se respondia Access-Control-Allow-Origin: *
@@ -47,7 +49,9 @@ app.use(cors({
     // X-Device-Id sigue declarado mientras exista el flujo anonimo; sin el,
     // el preflight bloquea el reporte.
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id'],
-    credentials: true
+    // La sesión viaja en el header Authorization, no en cookies: no hace falta
+    // permitir credenciales entre orígenes.
+    credentials: false
 }))
 // Limite explicito de cuerpo. El descriptivo por defecto de Express es 100kb;
 // para lo que manda esta API (un punto y unos campos cortos) 32kb sobra.
@@ -71,19 +75,38 @@ app.get('/health', async (req, res) => {
     // variables de entorno. Es el objetivo #4 del acta: saber y reportar
     // cuántas consultas usan la fuente real y cuántas el respaldo.
     const connection = await supabase.checkConnection()
+    // El detalle del error queda en los logs; hacia afuera solo el estado.
+    if (!connection.ok) console.error('[health] Supabase no responde:', connection.reason)
 
     res.json({
         status: 'SafeWay backend running',
-        storage: { ...reportStore.status(), supabaseReachable: connection.ok },
-        ...(connection.ok ? {} : { supabaseError: connection.reason })
+        storage: { backend: reportStore.status().backend, supabaseReachable: connection.ok }
     })
 })
+
+// Rutas que no existen: JSON como el resto de la API (antes, la página HTML
+// por defecto de Express).
+app.use((req, res) => {
+    res.status(404).json({ success: false, code: 'not_found', error: 'Ruta no encontrada' })
+})
+
+// Errores del lector de JSON: mensaje claro y sin detalles del parser.
+const ERRORES_DEL_CUERPO = {
+    'entity.parse.failed': [400, 'json_invalido', 'El cuerpo de la petición no es un JSON válido'],
+    'entity.too.large': [413, 'cuerpo_muy_grande', 'El cuerpo de la petición es demasiado grande']
+}
 
 // Manejador de errores. Sin esto, un origen rechazado por CORS devolvia
 // HTTP 500, que hace pensar que el servidor se rompio cuando en realidad
 // la peticion fue correctamente denegada.
 app.use((err, req, res, next) => {
     if (res.headersSent) return next(err)
+
+    const delCuerpo = ERRORES_DEL_CUERPO[err.type]
+    if (delCuerpo) {
+        const [status, code, error] = delCuerpo
+        return res.status(status).json({ success: false, code, error })
+    }
 
     const status = err.status || 500
     if (status >= 500) console.error('[app] error no controlado:', err)

@@ -145,6 +145,18 @@ export const getHabitualRoutes = async () => {
 
 // Derecho de supresión: borra el historial y las rutas habituales deducidas
 // de él (sus alertas se borran en cascada).
+// Derecho de supresión (Ley 1581): borrar un reporte propio para siempre, o
+// la cuenta entera (los reportes que queden se conservan anónimos y sin texto).
+export const deleteReportForever = async (id) => {
+  const response = await api.delete(`/api/reports/${id}/definitivo`)
+  return response.data
+}
+
+export const deleteAccount = async () => {
+  const response = await api.delete('/api/profile/account')
+  return response.data.data
+}
+
 export const deleteProfileHistory = async () => {
   const response = await api.delete('/api/profile/history')
   return response.data.data

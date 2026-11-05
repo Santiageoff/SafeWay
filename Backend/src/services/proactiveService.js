@@ -138,6 +138,26 @@ async function borrarHistorial(db, userId) {
     return { borrado: true }
 }
 
+// Derecho de supresión total: borra la cuenta. En cascada se van el perfil,
+// los consentimientos, el historial, las rutas habituales, las preferencias y
+// las alertas. Los reportes se conservan ANÓNIMOS (user_id -> null), porque
+// otras personas deciden su ruta con ellos, pero antes se les quita el texto
+// libre, que es lo único que podría identificar a alguien. Quien quiera que
+// desaparezcan también, los borra uno por uno antes (DELETE /api/reports/:id/definitivo).
+// El userId sale SIEMPRE del JWT verificado.
+async function borrarCuenta(userId) {
+    const admin = supabase.getAdminClient()
+    if (!admin) throw new ProfileError('Borrar la cuenta necesita SUPABASE_SECRET_KEY en el backend', 503, 'no_disponible')
+
+    const textos = await admin.from('reports').update({ description: null })
+        .eq('user_id', userId).abortSignal(limite())
+    if (textos.error) fallo(textos.error, 'anonimizar tus reportes')
+
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (error) fallo(error, 'borrar tu cuenta')
+    return { borrado: true }
+}
+
 // ---------- Rutas habituales y alertas (lectura propia) ----------
 
 async function misRutasHabituales(db) {
@@ -255,6 +275,6 @@ async function registrarAnalisis(sesion, datos, zonas) {
 module.exports = {
     PROPOSITOS, ProfileError, registrarAnalisis,
     misConsentimientos, guardarConsentimiento, misPreferencias, guardarPreferencias,
-    registrarConsulta, borrarHistorial, misRutasHabituales, misAlertas, marcarAlertaVista,
+    registrarConsulta, borrarHistorial, borrarCuenta, misRutasHabituales, misAlertas, marcarAlertaVista,
     actualizarPerfil
 }

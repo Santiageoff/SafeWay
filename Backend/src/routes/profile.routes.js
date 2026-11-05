@@ -44,5 +44,6 @@ router.post('/refresh', manejar(async req => {
 
 // Derecho de supresión.
 router.delete('/history', manejar(req => profile.borrarHistorial(req.db, req.user.id)))
+router.delete('/account', manejar(req => profile.borrarCuenta(req.user.id)))
 
 module.exports = router

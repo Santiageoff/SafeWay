@@ -290,7 +290,22 @@ async function cancelReport(client, userId, id) {
         )
     }
 
-    return store.update(client, id, { status: 'cancelled' })
+    // El reporte cancelado se conserva solo para el límite diario (si no, se
+    // podría reportar y deshacer en bucle), pero sin el texto libre: no hay
+    // razón para guardar lo que la persona escribió de un reporte que retiró.
+    return store.update(client, id, { status: 'cancelled', description: null, station: null })
+}
+
+// Derecho de supresión (Ley 1581): la persona borra un reporte suyo cuando
+// quiera, no solo en los 30 s de "deshacer". RLS ya lo permite solo al dueño.
+async function deleteReport(client, userId, id) {
+    const existing = await store.findById(client, id)
+    if (!existing) throw new ReportError('Reporte no encontrado', 404, 'not_found')
+    if (existing.user_id !== userId) {
+        throw new ReportError('Este reporte no es tuyo', 403, 'forbidden')
+    }
+    await store.remove(client, id)
+    return { borrado: true }
 }
 
 // De dónde vino un reporte, sin llegar a saber de quién.
@@ -372,6 +387,8 @@ module.exports = {
     createReport,
     completeReport,
     cancelReport,
+    deleteReport,
     groupReports,
+    origenDe,
     buildReport
 }

@@ -116,6 +116,20 @@ async function main() {
             capaInicial.json.count + ' -> ' + capaFinal.json.count)
         check('siguen sin exponer datos personales',
             !JSON.stringify(capaFinal.json).match(/device_hash|user_id|source_token|description/))
+
+        console.log('')
+        console.log('6. Derecho de supresion (Ley 1581)')
+        const idB = primeroB.json.report?.id
+        check('A NO puede eliminar el reporte de B',
+            (await api('/api/reports/' + idB + '/definitivo', { method: 'DELETE' }, A.token)).status === 404)
+        const eliminado = await api('/api/reports/' + idB + '/definitivo', { method: 'DELETE' }, B.token)
+        check('B elimina su reporte para siempre', eliminado.status === 200, 'HTTP ' + eliminado.status)
+        check('ya no aparece en sus reportes',
+            ((await api('/api/reports/mine', {}, B.token)).json.data || []).length === 0)
+        const cuenta = await api('/api/profile/account', { method: 'DELETE' }, B.token)
+        check('B elimina su cuenta', cuenta.status === 200, 'HTTP ' + cuenta.status)
+        check('su sesion deja de servir',
+            (await api('/api/reports/mine', {}, B.token)).status === 401)
     } catch (err) {
         console.error('\nLa prueba se rompio:', err.message)
         mal++

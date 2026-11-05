@@ -50,3 +50,50 @@ test('un id que no es UUID da 404 sin tocar la base', async (t) => {
     assert.equal(res.status, 404)
     assert.equal((await res.json()).code, 'not_found')
 })
+
+// ---------- PR 2: supresión y mejoras ----------
+
+function cuatroReportes(zona, usuarios, at) {
+    return usuarios.map((u, i) => ({
+        id: `r${i}`, type: 'carro', user_id: u, locality: zona.name, locality_id: zona.id,
+        lat: zona.coordinates[0] + i * 0.003, lng: zona.coordinates[1],
+        occurred_at: new Date(at.getTime() - i * 15 * 60 * 1000).toISOString()
+    }))
+}
+
+test('una sola cuenta con 4 reportes NO cambia el color de una localidad', () => {
+    const at = new Date('2026-11-05T20:00:00Z')   // 3 p. m. en Bogotá: franja "tarde"
+    const zona = localities.find(z => (z.vehicleRisks?.carro || z.riskLevel) === 'low')
+    const misma = buildZones(cuatroReportes(zona, ['u1', 'u1', 'u1', 'u1'], at), { mode: 'carro', at, localities })
+    assert.equal(misma.zones.find(z => z.id === zona.id).riskLevel, 'low')
+})
+
+test('4 personas distintas reportando SÍ cambian el color', () => {
+    const at = new Date('2026-11-05T20:00:00Z')
+    const zona = localities.find(z => (z.vehicleRisks?.carro || z.riskLevel) === 'low')
+    const distintas = buildZones(cuatroReportes(zona, ['u1', 'u2', 'u3', 'u4'], at), { mode: 'carro', at, localities })
+    assert.equal(distintas.zones.find(z => z.id === zona.id).riskLevel, 'medium')
+})
+
+test('la API no expone detalles internos y responde JSON en errores comunes', async (t) => {
+    const api = await levantarApi({ SUPABASE_URL: 'http://127.0.0.1:9', SUPABASE_KEY: 'k', SUPABASE_ANON_KEY: '' })
+    t.after(() => api.cerrar())
+
+    const salud = await (await api.get('/health')).json()
+    assert.equal(salud.storage.supabaseReachable, false)
+    assert.equal(salud.supabaseError, undefined)
+    assert.equal(salud.storage.adminKey, undefined)
+
+    const noExiste = await api.get('/api/no-existe')
+    assert.equal(noExiste.status, 404)
+    assert.equal((await noExiste.json()).code, 'not_found')
+
+    const malo = await fetch(api.base + '/api/route/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"origin":' })
+    assert.equal(malo.status, 400)
+    assert.equal((await malo.json()).code, 'json_invalido')
+
+    for (const ruta of ['/api/profile/account', '/api/reports/11111111-1111-4111-8111-111111111111/definitivo']) {
+        const r = await fetch(api.base + ruta, { method: 'DELETE' })
+        assert.equal(r.status, 401, ruta)
+    }
+})

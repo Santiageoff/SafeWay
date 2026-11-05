@@ -87,6 +87,16 @@ async function cancel(req, res) {
     }
 }
 
+// DELETE /api/reports/:id/definitivo - borrar un reporte propio (Ley 1581)
+async function remove(req, res) {
+    try {
+        await reportService.deleteReport(req.db, req.user.id, req.params.id)
+        res.json({ success: true, deleted: req.params.id })
+    } catch (err) {
+        handleError(res, err)
+    }
+}
+
 // GET /api/reports - capa de puntos del mapa. PÚBLICA, sin sesión.
 // Lee de la vista sanitizada: sin user_id, sin device_hash, sin descripción.
 async function list(req, res) {
@@ -134,4 +144,4 @@ async function mine(req, res) {
     }
 }
 
-module.exports = { create, complete, cancel, list, mine }
+module.exports = { create, complete, cancel, remove, list, mine }
