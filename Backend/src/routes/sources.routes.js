@@ -12,7 +12,8 @@ router.get('/', async (req, res, next) => {
         res.json({ success: true, total: data.length, data })
     } catch (err) {
         if (err instanceof sources.FuentesNoDisponibles) {
-            return res.status(503).json({ success: false, code: 'fuentes_no_disponibles', error: err.message })
+            console.error('[sources]', err.message)
+            return res.status(503).json({ success: false, code: 'fuentes_no_disponibles', error: 'Las fuentes complementarias no están disponibles ahora' })
         }
         next(err)
     }
@@ -31,7 +32,8 @@ router.get('/:localityId', async (req, res, next) => {
         res.json({ success: true, data: zona })
     } catch (err) {
         if (err instanceof sources.FuentesNoDisponibles) {
-            return res.status(503).json({ success: false, code: 'fuentes_no_disponibles', error: err.message })
+            console.error('[sources]', err.message)
+            return res.status(503).json({ success: false, code: 'fuentes_no_disponibles', error: 'Las fuentes complementarias no están disponibles ahora' })
         }
         next(err)
     }

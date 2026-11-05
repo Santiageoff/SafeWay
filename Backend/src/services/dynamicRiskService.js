@@ -14,7 +14,7 @@
 //  3. NO ESTIGMATIZAR. El aporte ciudadano es sublineal y tiene techo: un
 //     reporte suelto NUNCA cambia el color de una localidad.
 
-const { groupReports, modesForType, weightForType, MODES } = require('./reportService')
+const { groupReports, modesForType, weightForType, origenDe, MODES } = require('./reportService')
 
 // Ancla en porcentaje de inseguridad para cada nivel base.
 // Convierte el nivel cualitativo de `vehicleRisks` en un número al que se le
@@ -121,15 +121,28 @@ function confirmationBoost(cluster) {
     return Math.min(2, 1 + 0.25 * (cluster.independentSources - 1))
 }
 
+// Una misma fuente repitiendo hechos en la misma localidad cuenta poco: sin
+// esto, una sola cuenta con 4 reportes cambiaba el color (auditoría 2026-11).
+// Los hechos confirmados por 2 o más fuentes siempre cuentan completos.
+const REPEAT_SOURCE_WEIGHT = 0.25
+
 // Aporte ciudadano en puntos de inseguridad, para una localidad y un medio.
 function contributionFor(clusters, mode, targetWindow, now) {
     let weightedCount = 0
+    const fuentesVistas = new Set()
 
     for (const cluster of clusters) {
         const affectedModes = modesForType(cluster.type)
         if (!affectedModes.includes(mode)) continue
 
-        const weight = timeDecay(cluster.occurred_at, now) *
+        let repeticion = 1
+        if ((cluster.independentSources || 1) <= 1) {
+            const fuente = origenDe(cluster.reports?.[0] || cluster)
+            if (fuentesVistas.has(fuente)) repeticion = REPEAT_SOURCE_WEIGHT
+            else fuentesVistas.add(fuente)
+        }
+
+        const weight = repeticion * timeDecay(cluster.occurred_at, now) *
             windowWeight(cluster, targetWindow) *
             weightForType(cluster.type) *
             confirmationBoost(cluster)

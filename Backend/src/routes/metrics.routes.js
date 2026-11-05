@@ -20,7 +20,8 @@ router.get('/resumen', async (req, res, next) => {
         res.json({ success: true, data })
     } catch (err) {
         if (err instanceof metrics.MetricsNoDisponibles) {
-            return res.status(503).json({ success: false, code: 'metricas_no_disponibles', error: err.message })
+            console.error('[metrics]', err.message)
+            return res.status(503).json({ success: false, code: 'metricas_no_disponibles', error: 'Los indicadores no están disponibles ahora' })
         }
         next(err)
     }

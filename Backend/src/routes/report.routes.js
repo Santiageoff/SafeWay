@@ -20,5 +20,6 @@ router.get('/mine', requireAuth, controller.mine)
 router.post('/', requireAuth, controller.create)
 router.patch('/:id', requireAuth, controller.complete)
 router.delete('/:id', requireAuth, controller.cancel)
+router.delete('/:id/definitivo', requireAuth, controller.remove)
 
 module.exports = router

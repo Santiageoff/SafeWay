@@ -31,6 +31,10 @@ Render asigna el puerto en la variable `PORT`, y la API ya la lee (`app.js`).
 | `SUPABASE_SECRET_KEY` | Llave secreta (`sb_secret_…`) | **Solo Julián**, directamente en Render |
 | `CORS_ORIGINS` | El dominio de Vercel, p. ej. `https://safeway.vercel.app` | Quien publique el frontend |
 
+Opcional: `TRUST_PROXY` (por defecto `1`) es el número de proxies que Render pone delante de
+la API. El límite de peticiones lo necesita para ver la IP real de cada persona. Si al probar
+con dos redes distintas los contadores `RateLimit-Remaining` bajan juntos, súbelo (2 o 3).
+
 3. **Apply**. La primera construcción tarda unos minutos.
 
 La llave secreta se escribe directamente en el formulario de Render. No se manda por chat, ni

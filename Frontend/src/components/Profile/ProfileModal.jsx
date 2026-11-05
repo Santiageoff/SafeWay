@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useCerrarConFondo } from '../../hooks/useCerrarConFondo'
 import {
   getConsents, saveConsent, getPreferences, savePreferences,
-  getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory, getMyReports
+  getAlerts, markAlertSeen, getHabitualRoutes, deleteProfileHistory, getMyReports,
+  deleteReportForever, deleteAccount
 } from '../../services/api'
+import { useAuth } from '../../context/useAuth'
 import { typeById } from '../Alert/reportTypes'
 import { VEHICLE_LABELS_CORTOS } from './medios'
 import { RISK_LABELS, RISK_TAILWIND } from '../../utils/risk'
@@ -89,7 +91,45 @@ function Fila({ etiqueta, children }) {
 }
 
 // Un reporte del historial. Un toque lo despliega con todo el detalle.
-function TarjetaReporte({ reporte: r, abierta, onToggle, onCompleteReport }) {
+// Botón de dos toques: el primero pregunta, el segundo hace. Para lo que no
+// se puede deshacer (borrar un reporte, borrar la cuenta).
+function BotonDosToques({ texto, textoConfirmar, textoHaciendo, onConfirmar, className = '' }) {
+  const [confirmando, setConfirmando] = useState(false)
+  const [haciendo, setHaciendo] = useState(false)
+  const [error, setError] = useState(null)
+
+  const tocar = async () => {
+    if (!confirmando) { setConfirmando(true); setError(null); return }
+    setHaciendo(true)
+    try {
+      await onConfirmar()
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo completar. Intenta de nuevo.')
+      setConfirmando(false)
+    } finally {
+      setHaciendo(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={tocar}
+        disabled={haciendo}
+        className={
+          'min-h-[40px] w-full rounded-campo border-3 border-texto px-3 py-1.5 text-xs font-semibold text-texto disabled:opacity-60 ' +
+          (confirmando ? 'bg-riesgo-alto ' : 'bg-superficie ') + className
+        }
+      >
+        {haciendo ? textoHaciendo : confirmando ? textoConfirmar : texto}
+      </button>
+      {error && <p className="m-0 mt-1 text-[11px] text-riesgo-alto-texto">{error}</p>}
+    </>
+  )
+}
+
+function TarjetaReporte({ reporte: r, abierta, onToggle, onCompleteReport, onEliminar }) {
   const tipo = typeById(r.type)
   const sinDetalles = !r.type
   const desde = r.occurred_at ? formatoFecha.format(new Date(r.occurred_at)) : ''
@@ -161,6 +201,16 @@ function TarjetaReporte({ reporte: r, abierta, onToggle, onCompleteReport }) {
               {sinDetalles ? 'Completar detalles' : 'Editar detalles'}
             </button>
           )}
+          {onEliminar && (
+            <div className="mt-2">
+              <BotonDosToques
+                texto="Eliminar este reporte"
+                textoConfirmar="¿Seguro? Desaparece del mapa. Toca de nuevo"
+                textoHaciendo="Eliminando…"
+                onConfirmar={() => onEliminar(r.id)}
+              />
+            </div>
+          )}
         </div>
       )}
     </li>
@@ -182,6 +232,12 @@ function MisReportes({ onCompleteReport }) {
     return () => { cancelado = true }
   }, [])
 
+  const eliminar = async (id) => {
+    await deleteReportForever(id)
+    setReportes(actuales => actuales.filter(x => x.id !== id))
+    setAbierto(null)
+  }
+
   const titulo = `Tus reportes de robo${reportes?.length ? ` (${reportes.length})` : ''}`
 
   return (
@@ -202,10 +258,37 @@ function MisReportes({ onCompleteReport }) {
               abierta={abierto === r.id}
               onToggle={() => setAbierto(abierto === r.id ? null : r.id)}
               onCompleteReport={onCompleteReport}
+              onEliminar={eliminar}
             />
           ))}
         </ul>
       )}
+    </Seccion>
+  )
+}
+
+// Derecho de supresión total (Ley 1581). Se explica qué pasa con cada cosa
+// antes de borrar: nadie debería enterarse después.
+function EliminarCuenta({ onClose }) {
+  const { cerrarSesion } = useAuth()
+  return (
+    <Seccion titulo="Eliminar mi cuenta">
+      <p className="mb-2 text-[11px] leading-relaxed text-texto-tenue">
+        Borra tu cuenta, tu perfil, tus permisos, tu historial, tus rutas habituales y tus alertas.
+        Los reportes de robo que no hayas eliminado arriba se quedan en el mapa <strong>sin tu nombre
+        y sin lo que escribiste</strong>, porque otras personas deciden su ruta con ellos. No se puede deshacer.
+      </p>
+      <BotonDosToques
+        texto="Eliminar mi cuenta"
+        textoConfirmar="¿Seguro? Se borra todo. Toca de nuevo"
+        textoHaciendo="Eliminando tu cuenta…"
+        onConfirmar={async () => {
+          await deleteAccount()
+          await cerrarSesion()
+          onClose?.()
+        }}
+        className="min-h-[44px] text-sm"
+      />
     </Seccion>
   )
 }
@@ -499,6 +582,8 @@ function ProfileModal({ zones = [], onClose, onChanged, onCompleteReport }) {
                 </>
               )}
             </Seccion>
+
+            <EliminarCuenta onClose={onClose} />
           </>
         )}
       </div>
